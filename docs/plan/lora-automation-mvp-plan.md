@@ -170,7 +170,7 @@ README 影响：
 
 ---
 
-## Phase 2：AT Client 与基础断言封装 [ ]
+## Phase 2：AT Client 与基础断言封装 [√]
 
 目标：
 
@@ -208,6 +208,14 @@ README 影响：
 - mock 测试覆盖成功响应、超时响应和期望不匹配
 - 既有 Phase 1 测试继续通过
 - README 已更新，或已明确记录“已检查 README，无需更新。”
+
+完成记录：
+
+- 实现 PR：#2 `feat: phase2 at client assertions`
+- 合并方式：squash merge
+- 合并提交：`41b30c0b49738eb01325fc2970bc2ae291ffb602`
+- CI：`CI` workflow completed / success
+- README：已检查；Phase 2 未新增或改变用户可运行入口，无需更新 README
 
 建议优先级：最高
 
