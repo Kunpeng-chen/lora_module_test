@@ -58,14 +58,14 @@ def test_send_cmd_supports_version_expectation() -> None:
     assert fake.commands == [("AT+VERSION", True)]
 
 
-def test_enter_at_sends_escape_sequence_without_newline() -> None:
+def test_enter_at_sends_escape_sequence_with_crlf() -> None:
     fake = FakeSerialClient(SerialResponse(data="Entry AT\r\n", matched=True))
     client = AtClient(fake)  # type: ignore[arg-type]
 
     result = client.enter_at(timeout=0.5)
 
     assert result.passed is True
-    assert fake.commands == [("+++", False)]
+    assert fake.commands == [("+++", True)]
     assert fake.reads == [("Entry AT", 0.5)]
 
 
