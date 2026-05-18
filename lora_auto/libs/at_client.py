@@ -60,12 +60,7 @@ class AtClient:
         """
 
         result = self.send_cmd("+++", expected=expected, timeout=timeout)
-        drained = ""
-        try:
-            drained = self.serial.read_all(timeout=reset_drain_timeout)
-            self.serial.clear_buffer()
-        except SerialClientError as exc:
-            raise AtClientError(f"failed to drain AT exit response: {exc}") from exc
+        drained = self._drain_reset_banner(reset_drain_timeout, "AT exit")
 
         response = result.response + drained
         assertion: AssertionResult = assert_contains(result.response, expected)
@@ -106,10 +101,32 @@ class AtClient:
             message=assertion.message,
         )
 
-    def reset(self, timeout: float = 5.0, expected: str = "OK") -> AtCommandResult:
-        """Reset the module through AT command."""
+    def reset(
+        self,
+        timeout: float = 5.0,
+        expected: str = "OK",
+        reset_drain_timeout: float = 1.0,
+    ) -> AtCommandResult:
+        """Reset the module through AT command and drain boot banner residue.
 
-        return self.send_cmd("AT+RESET", expected=expected, timeout=timeout)
+        ``AT+RESET`` may return ``OK`` before the module prints the subsequent
+        boot banner, for example ``Power on``. Draining and clearing here keeps
+        that banner from leaking into the next transparent-transfer receive
+        window.
+        """
+
+        result = self.send_cmd("AT+RESET", expected=expected, timeout=timeout)
+        drained = self._drain_reset_banner(reset_drain_timeout, "AT reset")
+
+        response = result.response + drained
+        assertion: AssertionResult = assert_contains(result.response, expected)
+        return AtCommandResult(
+            command=result.command,
+            response=response,
+            expected=result.expected,
+            passed=result.passed and assertion.passed,
+            message=assertion.message,
+        )
 
     def require_cmd(
         self,
@@ -135,3 +152,13 @@ class AtClient:
                 f"AT command {cmd!r} failed: expected {expected!r}, response {result.response!r}"
             )
         return result
+
+    def _drain_reset_banner(self, timeout: float, operation: str) -> str:
+        """Drain delayed reset/banner bytes and clear stale serial buffers."""
+
+        try:
+            drained = self.serial.read_all(timeout=timeout)
+            self.serial.clear_buffer()
+        except SerialClientError as exc:
+            raise AtClientError(f"failed to drain {operation} response: {exc}") from exc
+        return drained
