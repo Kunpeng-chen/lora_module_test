@@ -2,15 +2,15 @@
 
 A Python-based testing tool for LoRa modules, providing an easy way to validate communication and performance.
 
-## Phase 1: serial AT baseline
-
-Phase 1 provides a minimal serial connectivity check for a single LoRa module.
-
-### Install dependencies
+## Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
+
+## Phase 1: serial AT baseline
+
+Phase 1 provides a minimal serial connectivity check for a single LoRa module.
 
 ### Check a module over serial
 
@@ -120,7 +120,7 @@ Useful options:
 | `--cases` | MVP cases YAML path. |
 | `--case` | Run only one case ID. |
 | `--log-level` | Python logging level. |
-| `--report-dir` | Reserved for report output in later phases. |
+| `--report-dir` | Report output directory. |
 
 Successful transparent-transfer output contains:
 
@@ -129,6 +129,30 @@ Successful transparent-transfer output contains:
 ```
 
 Failure output includes a failure reason, including the sent and received payload details when transparent transfer validation fails.
+
+## Phase 5: reports and logs
+
+Phase 5 writes structured reports and per-case logs after each MVP run.
+
+Default output location:
+
+```text
+reports/
+  result.json
+  result.md
+  logs/
+    MVP-001_runner.log
+    MVP-002_runner.log
+    MVP-003_runner.log
+```
+
+Use a custom output directory:
+
+```bash
+python lora_auto/test_mvp.py --report-dir reports/local-run
+```
+
+The JSON report contains a summary and full case entries. The Markdown report contains a summary table and case result table.
 
 ## Run tests
 

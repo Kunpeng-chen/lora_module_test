@@ -5,7 +5,8 @@ from pathlib import Path
 import pytest
 
 from lora_auto.libs.at_client import AtCommandResult
-from lora_auto.test_mvp import MvpRunner, MvpRunnerError, load_cases, load_devices, select_cases
+from lora_auto.libs.lora_device import DeviceCommandStep
+from lora_auto.test_mvp import MvpRunner, MvpRunnerError, load_cases, load_devices, select_cases, to_report_case
 
 
 class FakeAt:
@@ -59,8 +60,22 @@ class FakeDevice:
     def close(self) -> None:
         self.closed = True
 
-    def configure_transparent_mode(self, sleep: str = "2", mode: str = "0", level: str = "2", channel: str = "00") -> None:
+    def configure_transparent_mode(
+        self,
+        sleep: str = "2",
+        mode: str = "0",
+        level: str = "2",
+        channel: str = "00",
+    ) -> list[DeviceCommandStep]:
         self.config_calls.append({"sleep": sleep, "mode": mode, "level": level, "channel": channel})
+        return [
+            DeviceCommandStep(command="+++", expected="Entry AT", response="Entry AT", passed=True),
+            DeviceCommandStep(command=f"AT+SLEEP{sleep}", expected="OK", response="OK", passed=True),
+            DeviceCommandStep(command=f"AT+MODE{mode}", expected="OK", response="OK", passed=True),
+            DeviceCommandStep(command=f"AT+LEVEL{level}", expected="OK", response="OK", passed=True),
+            DeviceCommandStep(command=f"AT+CHANNEL{channel}", expected="OK", response="OK", passed=True),
+            DeviceCommandStep(command="AT+RESET", expected="OK", response="OK", passed=True),
+        ]
 
 
 def test_load_devices_creates_devices_from_yaml(tmp_path: Path) -> None:
@@ -110,9 +125,9 @@ def test_select_cases_raises_for_unknown_case() -> None:
         select_cases([{"id": "MVP-001", "name": "x", "type": "at"}], "MVP-999")
 
 
-def test_runner_executes_at_case_successfully() -> None:
+def test_runner_executes_at_case_successfully(tmp_path: Path) -> None:
     device = FakeDevice("A")
-    runner = MvpRunner({"A": device})
+    runner = MvpRunner({"A": device}, report_dir=tmp_path)
 
     result = runner.run_case(
         {
@@ -128,13 +143,15 @@ def test_runner_executes_at_case_successfully() -> None:
     )
 
     assert result.status == "PASS"
+    assert result.log_file is not None
+    assert Path(result.log_file).exists()
     assert device.at.commands == [("AT", "OK"), ("AT+VERSION", "+VERSION")]
 
 
-def test_runner_returns_fail_for_at_case_mismatch() -> None:
+def test_runner_returns_fail_for_at_case_mismatch(tmp_path: Path) -> None:
     device = FakeDevice("A")
     device.at = FakeAt(fail_command="AT")
-    runner = MvpRunner({"A": device})
+    runner = MvpRunner({"A": device}, report_dir=tmp_path)
 
     result = runner.run_case(
         {
@@ -147,13 +164,15 @@ def test_runner_returns_fail_for_at_case_mismatch() -> None:
     )
 
     assert result.status == "FAIL"
+    assert result.log_file is not None
+    assert Path(result.log_file).exists()
     assert "AT command" in result.failure_reason
 
 
-def test_runner_executes_config_case_for_multiple_devices() -> None:
+def test_runner_executes_config_case_for_multiple_devices(tmp_path: Path) -> None:
     dev_a = FakeDevice("A")
     dev_b = FakeDevice("B")
-    runner = MvpRunner({"A": dev_a, "B": dev_b})
+    runner = MvpRunner({"A": dev_a, "B": dev_b}, report_dir=tmp_path)
 
     result = runner.run_case(
         {
@@ -168,13 +187,14 @@ def test_runner_executes_config_case_for_multiple_devices() -> None:
     assert result.status == "PASS"
     assert dev_a.config_calls == [{"sleep": "2", "mode": "0", "level": "2", "channel": "00"}]
     assert dev_b.config_calls == [{"sleep": "2", "mode": "0", "level": "2", "channel": "00"}]
+    assert "AT+RESET" in "\n".join(result.steps)
 
 
-def test_runner_executes_transparent_transfer_case_successfully() -> None:
+def test_runner_executes_transparent_transfer_case_successfully(tmp_path: Path) -> None:
     sender = FakeDevice("A")
     receiver = FakeDevice("B")
     receiver.serial = FakeSerial(read_data="noise123456789\r\n")
-    runner = MvpRunner({"A": sender, "B": receiver})
+    runner = MvpRunner({"A": sender, "B": receiver}, report_dir=tmp_path)
 
     result = runner.run_case(
         {
@@ -193,13 +213,14 @@ def test_runner_executes_transparent_transfer_case_successfully() -> None:
     assert sender.serial.cleared == 1
     assert receiver.serial.cleared == 1
     assert sender.serial.written == [("123456789", False)]
+    assert "sent='123456789'" in "\n".join(result.steps)
 
 
-def test_runner_returns_fail_for_transparent_transfer_timeout() -> None:
+def test_runner_returns_fail_for_transparent_transfer_timeout(tmp_path: Path) -> None:
     sender = FakeDevice("A")
     receiver = FakeDevice("B")
     receiver.serial = FakeSerial(read_data="")
-    runner = MvpRunner({"A": sender, "B": receiver})
+    runner = MvpRunner({"A": sender, "B": receiver}, report_dir=tmp_path)
 
     result = runner.run_case(
         {
@@ -216,6 +237,8 @@ def test_runner_returns_fail_for_transparent_transfer_timeout() -> None:
 
     assert result.status == "FAIL"
     assert "receiver did not receive expected payload" in result.failure_reason
+    assert "sent='123456789'" in result.failure_reason
+    assert "received=''" in result.failure_reason
 
 
 def test_runner_opens_and_closes_all_devices() -> None:
@@ -230,3 +253,25 @@ def test_runner_opens_and_closes_all_devices() -> None:
     assert dev_a.closed is True
     assert dev_b.opened is True
     assert dev_b.closed is True
+
+
+def test_to_report_case_preserves_failure_reason_and_steps(tmp_path: Path) -> None:
+    device = FakeDevice("A")
+    device.at = FakeAt(fail_command="AT")
+    runner = MvpRunner({"A": device}, report_dir=tmp_path)
+
+    result = runner.run_case(
+        {
+            "id": "MVP-001",
+            "name": "AT 基础指令测试",
+            "type": "at",
+            "device": "A",
+            "steps": [{"command": "AT", "expected": "OK"}],
+        }
+    )
+    report_case = to_report_case(result)
+
+    assert report_case.case_id == "MVP-001"
+    assert report_case.status == "FAIL"
+    assert report_case.failure_reason == result.failure_reason
+    assert report_case.log_file == result.log_file
