@@ -14,6 +14,17 @@ class FakeAt:
         self.fail_command = fail_command
         self.commands: list[tuple[str, str]] = []
 
+    def enter_at(self) -> AtCommandResult:
+        self.commands.append(("+++", "Entry AT"))
+        passed = self.fail_command != "+++"
+        return AtCommandResult(
+            command="+++",
+            response="Entry AT" if passed else "ERROR",
+            expected="Entry AT",
+            passed=passed,
+            message="ok" if passed else "failed",
+        )
+
     def send_cmd(self, command: str, expected: str = "OK") -> AtCommandResult:
         self.commands.append((command, expected))
         passed = self.fail_command != command
@@ -145,7 +156,29 @@ def test_runner_executes_at_case_successfully(tmp_path: Path) -> None:
     assert result.status == "PASS"
     assert result.log_file is not None
     assert Path(result.log_file).exists()
-    assert device.at.commands == [("AT", "OK"), ("AT+VERSION", "+VERSION")]
+    assert device.at.commands == [("+++", "Entry AT"), ("AT", "OK"), ("AT+VERSION", "+VERSION")]
+    assert "+++)" not in "\n".join(result.steps)
+    assert "A: +++" in "\n".join(result.steps)
+
+
+def test_runner_stops_at_case_when_enter_at_fails(tmp_path: Path) -> None:
+    device = FakeDevice("A")
+    device.at = FakeAt(fail_command="+++")
+    runner = MvpRunner({"A": device}, report_dir=tmp_path)
+
+    result = runner.run_case(
+        {
+            "id": "MVP-001",
+            "name": "AT 基础指令测试",
+            "type": "at",
+            "device": "A",
+            "steps": [{"command": "AT", "expected": "OK"}],
+        }
+    )
+
+    assert result.status == "FAIL"
+    assert "failed to enter AT mode" in result.failure_reason
+    assert device.at.commands == [("+++", "Entry AT")]
 
 
 def test_runner_returns_fail_for_at_case_mismatch(tmp_path: Path) -> None:
@@ -167,6 +200,7 @@ def test_runner_returns_fail_for_at_case_mismatch(tmp_path: Path) -> None:
     assert result.log_file is not None
     assert Path(result.log_file).exists()
     assert "AT command" in result.failure_reason
+    assert device.at.commands == [("+++", "Entry AT"), ("AT", "OK")]
 
 
 def test_runner_executes_config_case_for_multiple_devices(tmp_path: Path) -> None:
