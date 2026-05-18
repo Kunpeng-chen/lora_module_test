@@ -205,6 +205,13 @@ class MvpRunner:
             raise MvpRunnerError(f"case {case['id']} must define at least one AT step")
 
         executed_steps: list[str] = []
+        entry = device.at.enter_at()
+        executed_steps.append(f"{device.name}: +++ -> {entry.response!r}")
+        if not entry.passed:
+            raise MvpRunnerError(
+                f"failed to enter AT mode: expected {entry.expected!r}, response {entry.response!r}"
+            )
+
         for step in steps:
             command = step["command"]
             expected = step.get("expected", "OK")
