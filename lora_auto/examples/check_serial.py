@@ -15,7 +15,7 @@ from lora_auto.libs.at_client import AtClient, AtClientError
 from lora_auto.libs.serial_client import SerialClient, SerialClientError
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Check LoRa module serial AT connectivity.")
     parser.add_argument("--port", required=True, help="Serial port, for example COM3 or /dev/ttyUSB0.")
     parser.add_argument("--baudrate", type=int, default=9600, help="Serial baudrate. Default: 9600.")
@@ -32,11 +32,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Skip the final +++ AT-mode exit step after a successful check.",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
     client = SerialClient(port=args.port, baudrate=args.baudrate, timeout=args.timeout)
     at = AtClient(client)
 
