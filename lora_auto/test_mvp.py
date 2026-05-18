@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -18,18 +19,24 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from lora_auto.libs.assertions import assert_payload_equal
 from lora_auto.libs.lora_device import LoraDevice, LoraDeviceError
+from lora_auto.libs.report import ReportCase, ReportStep, utc_now_iso, write_device_log, write_reports
 
 LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
 class CaseResult:
-    """Minimal console-level case result for Phase 4."""
+    """Console-level case result for MVP execution."""
 
     case_id: str
     case_name: str
     status: str
     failure_reason: str | None = None
+    start_time: str | None = None
+    end_time: str | None = None
+    duration: float = 0.0
+    steps: tuple[str, ...] = ()
+    log_file: str | None = None
 
 
 class MvpRunnerError(RuntimeError):
@@ -104,29 +111,78 @@ def select_cases(cases: list[dict[str, Any]], case_id: str | None = None) -> lis
 
 
 class MvpRunner:
-    """Executes the Phase 4 MVP case types."""
+    """Executes the MVP case types."""
 
-    def __init__(self, devices: dict[str, LoraDevice]) -> None:
+    def __init__(self, devices: dict[str, LoraDevice], report_dir: str | Path = "reports") -> None:
         self.devices = devices
+        self.report_dir = Path(report_dir)
 
     def run_case(self, case: dict[str, Any]) -> CaseResult:
         case_type = case["type"]
         case_id = case["id"]
         case_name = case["name"]
+        start_time = utc_now_iso()
+        start_monotonic = time.monotonic()
+        steps: list[str] = []
 
         try:
             if case_type == "at":
-                self._run_at_case(case)
+                steps = self._run_at_case(case)
             elif case_type == "config":
-                self._run_config_case(case)
+                steps = self._run_config_case(case)
             elif case_type == "transparent_transfer":
-                self._run_transparent_transfer_case(case)
+                steps = self._run_transparent_transfer_case(case)
             else:
                 raise MvpRunnerError(f"unsupported case type {case_type!r}")
         except Exception as exc:
-            return CaseResult(case_id=case_id, case_name=case_name, status="FAIL", failure_reason=str(exc))
+            end_time = utc_now_iso()
+            duration = time.monotonic() - start_monotonic
+            log_file = write_device_log(
+                self.report_dir,
+                case_id,
+                "runner",
+                [
+                    f"case_id={case_id}",
+                    f"case_name={case_name}",
+                    f"status=FAIL",
+                    f"failure_reason={exc}",
+                ],
+            )
+            return CaseResult(
+                case_id=case_id,
+                case_name=case_name,
+                status="FAIL",
+                failure_reason=str(exc),
+                start_time=start_time,
+                end_time=end_time,
+                duration=duration,
+                steps=tuple(steps),
+                log_file=log_file,
+            )
 
-        return CaseResult(case_id=case_id, case_name=case_name, status="PASS")
+        end_time = utc_now_iso()
+        duration = time.monotonic() - start_monotonic
+        log_file = write_device_log(
+            self.report_dir,
+            case_id,
+            "runner",
+            [
+                f"case_id={case_id}",
+                f"case_name={case_name}",
+                "status=PASS",
+                *steps,
+            ],
+        )
+        return CaseResult(
+            case_id=case_id,
+            case_name=case_name,
+            status="PASS",
+            start_time=start_time,
+            end_time=end_time,
+            duration=duration,
+            steps=tuple(steps),
+            log_file=log_file,
+        )
 
     def open_devices(self) -> None:
         for device in self.devices.values():
@@ -142,22 +198,25 @@ class MvpRunner:
         except KeyError as exc:
             raise MvpRunnerError(f"device {name!r} not found") from exc
 
-    def _run_at_case(self, case: dict[str, Any]) -> None:
+    def _run_at_case(self, case: dict[str, Any]) -> list[str]:
         device = self._get_device(case["device"])
         steps = case.get("steps", [])
         if not isinstance(steps, list) or not steps:
             raise MvpRunnerError(f"case {case['id']} must define at least one AT step")
 
+        executed_steps: list[str] = []
         for step in steps:
             command = step["command"]
             expected = step.get("expected", "OK")
             result = device.at.send_cmd(command, expected=expected)
+            executed_steps.append(f"{device.name}: {command} -> {result.response!r}")
             if not result.passed:
                 raise MvpRunnerError(
                     f"AT command {command!r} failed: expected {expected!r}, response {result.response!r}"
                 )
+        return executed_steps
 
-    def _run_config_case(self, case: dict[str, Any]) -> None:
+    def _run_config_case(self, case: dict[str, Any]) -> list[str]:
         device_names = case.get("devices", [])
         config = case.get("config", {})
         if not isinstance(device_names, list) or not device_names:
@@ -165,10 +224,11 @@ class MvpRunner:
         if not isinstance(config, dict):
             raise MvpRunnerError(f"case {case['id']} config must be a mapping")
 
+        executed_steps: list[str] = []
         for device_name in device_names:
             device = self._get_device(device_name)
             try:
-                device.configure_transparent_mode(
+                command_steps = device.configure_transparent_mode(
                     sleep=str(config.get("sleep", "2")),
                     mode=str(config.get("mode", "0")),
                     level=str(config.get("level", "2")),
@@ -176,8 +236,11 @@ class MvpRunner:
                 )
             except LoraDeviceError as exc:
                 raise MvpRunnerError(str(exc)) from exc
+            for command_step in command_steps:
+                executed_steps.append(f"{device.name}: {command_step.command} -> {command_step.response!r}")
+        return executed_steps
 
-    def _run_transparent_transfer_case(self, case: dict[str, Any]) -> None:
+    def _run_transparent_transfer_case(self, case: dict[str, Any]) -> list[str]:
         sender = self._get_device(case["sender"])
         receiver = self._get_device(case["receiver"])
         payload = str(case["payload"])
@@ -195,10 +258,30 @@ class MvpRunner:
                 "receiver did not receive expected payload within "
                 f"{timeout}s; sent={payload!r}, received={received!r}"
             )
+        return [
+            f"{sender.name}: sent={payload!r}",
+            f"{receiver.name}: received={received!r}",
+        ]
+
+
+def to_report_case(result: CaseResult) -> ReportCase:
+    """Convert runner result to serializable report entry."""
+
+    return ReportCase(
+        case_id=result.case_id,
+        case_name=result.case_name,
+        status=result.status,
+        start_time=result.start_time or "",
+        end_time=result.end_time or "",
+        duration=result.duration,
+        steps=[ReportStep(name=step, status=result.status, detail=step) for step in result.steps],
+        failure_reason=result.failure_reason,
+        log_file=result.log_file,
+    )
 
 
 def print_result(result: CaseResult) -> None:
-    """Print the Phase 4 console result format."""
+    """Print the console result format."""
 
     print(f"[{result.case_id}] {result.case_name} {result.status}")
     if result.failure_reason:
@@ -211,18 +294,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--cases", default="lora_auto/config/mvp_cases.yaml", help="MVP cases YAML path.")
     parser.add_argument("--case", dest="case_id", default=None, help="Run only one case ID.")
     parser.add_argument("--log-level", default="INFO", help="Python logging level. Default: INFO.")
-    parser.add_argument("--report-dir", default="reports", help="Reserved report output directory for later phases.")
+    parser.add_argument("--report-dir", default="reports", help="Report output directory.")
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO))
-    LOGGER.debug("report-dir is reserved for later phases: %s", args.report_dir)
 
     devices = load_devices(args.config)
     cases = select_cases(load_cases(args.cases), args.case_id)
-    runner = MvpRunner(devices)
+    runner = MvpRunner(devices, report_dir=args.report_dir)
 
     try:
         runner.open_devices()
@@ -232,6 +314,10 @@ def main(argv: list[str] | None = None) -> int:
 
     for result in results:
         print_result(result)
+
+    json_path, markdown_path = write_reports(args.report_dir, [to_report_case(result) for result in results])
+    print(f"JSON report: {json_path}")
+    print(f"Markdown report: {markdown_path}")
 
     return 1 if any(result.status != "PASS" for result in results) else 0
 
