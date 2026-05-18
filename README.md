@@ -140,7 +140,7 @@ Useful options:
 | `--log-level` | Python logging level. |
 | `--report-dir` | Report output directory. |
 
-For `at` cases, the runner enters AT mode first, then runs the configured AT steps.
+For `at` cases, the runner enters AT mode first, runs the configured AT steps, then exits AT mode before the next case. If the config case fails, the transparent-transfer case is reported as `BLOCKED` instead of continuing with invalid preconditions.
 
 Successful transparent-transfer output contains:
 
@@ -148,7 +148,7 @@ Successful transparent-transfer output contains:
 [MVP-003] 透明传输收发一致性测试 PASS
 ```
 
-Failure output includes a failure reason, including the sent and received payload details when transparent transfer validation fails.
+Failure output includes a failure reason, including the sent and received payload details when transparent transfer validation fails. Blocked output includes the failed prerequisite reason.
 
 ## Phase 5: reports and logs
 
