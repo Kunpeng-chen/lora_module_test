@@ -10,12 +10,16 @@ class FakeSerialClient:
     def __init__(self) -> None:
         self.opened = False
         self.closed = False
+        self.cleared = 0
 
     def open(self) -> None:
         self.opened = True
 
     def close(self) -> None:
         self.closed = True
+
+    def clear_buffer(self) -> None:
+        self.cleared += 1
 
 
 class FakeAtClient:
@@ -76,11 +80,13 @@ def test_device_open_and_close_delegate_to_serial_client() -> None:
 
 
 def test_configure_transparent_mode_executes_expected_command_sequence() -> None:
+    serial = FakeSerialClient()
     at = FakeAtClient()
-    device = LoraDevice("A", "COM3", at_client=at)  # type: ignore[arg-type]
+    device = LoraDevice("A", "COM3", serial_client=serial, at_client=at)  # type: ignore[arg-type]
 
     steps = device.configure_transparent_mode()
 
+    assert serial.cleared == 1
     assert [step.command for step in steps] == [
         "+++",
         "AT+SLEEP2",
