@@ -103,7 +103,7 @@ lora_auto/
 
 ---
 
-## Phase 1：单设备串口与 AT 连通性基线 [ ]
+## Phase 1：单设备串口与 AT 连通性基线 [√]
 
 目标：
 
@@ -141,6 +141,14 @@ lora_auto/
 - 失败时输出明确错误原因，例如串口打不开、超时未收到期望返回
 - 新增测试通过
 - PR 合并后检查 README；如新增了用户可运行入口，应更新 README，否则记录“已检查 README，无需更新。”
+
+完成记录：
+
+- 实现 PR：#1 `feat: phase1 serial at baseline`
+- 合并方式：squash merge
+- 合并提交：`2ccae6a62307ebfeb90a1c91e5c9a437488c8115`
+- CI：`CI` workflow completed / success
+- README：已检查并更新 Phase 1 串口检查、依赖安装和测试命令
 
 建议优先级：最高
 
