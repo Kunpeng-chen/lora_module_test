@@ -90,8 +90,9 @@ class LoraDevice:
         surface a precise failure reason and avoid running later invalid steps.
         """
 
+        self.serial.clear_buffer()
         commands: list[tuple[str, str, float, bool]] = [
-            ("+++", self.at.at_entry_expected, command_timeout, False),
+            ("+++", self.at.at_entry_expected, command_timeout, True),
             (f"AT+SLEEP{sleep}", "OK", command_timeout, True),
             (f"AT+MODE{mode}", "OK", command_timeout, True),
             (f"AT+LEVEL{level}", "OK", command_timeout, True),
