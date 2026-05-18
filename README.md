@@ -14,6 +14,8 @@ Phase 1 provides a minimal serial connectivity check for a single LoRa module.
 
 ### Check a module over serial
 
+The checker enters AT mode first by sending `+++\r\n` and waiting for `Entry AT`, then sends the requested AT command with `\r\n` appended.
+
 Windows example:
 
 ```bash
@@ -32,9 +34,17 @@ Optional arguments:
 python lora_auto/examples/check_serial.py --port COM3 --baudrate 9600 --timeout 2 --command AT --expected OK
 ```
 
+If the module is already in AT mode, skip the entry step:
+
+```bash
+python lora_auto/examples/check_serial.py --port COM3 --skip-enter-at
+```
+
 Successful output contains:
 
 ```text
+TX: +++
+RX: Entry AT
 TX: AT
 RX: OK
 PASS
@@ -75,7 +85,7 @@ Field meanings:
 | `baudrate` | Serial baudrate used by the module. |
 | `role` | Logical test role, for example `sender` or `receiver`. |
 
-The Phase 3 transparent-mode configuration flow uses these AT commands internally:
+The Phase 3 transparent-mode configuration flow uses these AT commands internally. Each AT command is sent with `\r\n` appended:
 
 ```text
 +++
@@ -121,6 +131,8 @@ Useful options:
 | `--case` | Run only one case ID. |
 | `--log-level` | Python logging level. |
 | `--report-dir` | Report output directory. |
+
+For `at` cases, the runner enters AT mode first, then runs the configured AT steps.
 
 Successful transparent-transfer output contains:
 
