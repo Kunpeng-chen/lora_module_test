@@ -86,6 +86,50 @@ AT+CHANNEL00
 AT+RESET
 ```
 
+## Phase 4: MVP case runner
+
+Phase 4 adds a minimal YAML-driven runner for three MVP case types:
+
+- `at`
+- `config`
+- `transparent_transfer`
+
+Example cases file:
+
+```text
+lora_auto/config/mvp_cases.yaml
+```
+
+Run all MVP cases:
+
+```bash
+python lora_auto/test_mvp.py --config lora_auto/config/devices.yaml --cases lora_auto/config/mvp_cases.yaml
+```
+
+Run a single case:
+
+```bash
+python lora_auto/test_mvp.py --case MVP-003
+```
+
+Useful options:
+
+| Option | Description |
+|---|---|
+| `--config` | Device config YAML path. |
+| `--cases` | MVP cases YAML path. |
+| `--case` | Run only one case ID. |
+| `--log-level` | Python logging level. |
+| `--report-dir` | Reserved for report output in later phases. |
+
+Successful transparent-transfer output contains:
+
+```text
+[MVP-003] 透明传输收发一致性测试 PASS
+```
+
+Failure output includes a failure reason, including the sent and received payload details when transparent transfer validation fails.
+
 ## Run tests
 
 ```bash

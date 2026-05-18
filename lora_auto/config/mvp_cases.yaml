@@ -1,0 +1,29 @@
+cases:
+  - id: MVP-001
+    name: AT 基础指令测试
+    type: at
+    device: A
+    steps:
+      - command: "AT"
+        expected: "OK"
+      - command: "AT+VERSION"
+        expected: "+VERSION"
+
+  - id: MVP-002
+    name: A/B 模块配置为透明传输
+    type: config
+    devices: [A, B]
+    config:
+      sleep: "2"
+      mode: "0"
+      level: "2"
+      channel: "00"
+
+  - id: MVP-003
+    name: 透明传输收发一致性测试
+    type: transparent_transfer
+    sender: A
+    receiver: B
+    payload: "123456789"
+    expected: "123456789"
+    timeout: 5
