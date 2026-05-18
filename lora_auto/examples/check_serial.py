@@ -15,7 +15,7 @@ from lora_auto.libs.at_client import AtClient, AtClientError
 from lora_auto.libs.serial_client import SerialClient, SerialClientError
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Check LoRa module serial AT connectivity.")
     parser.add_argument("--port", required=True, help="Serial port, for example COM3 or /dev/ttyUSB0.")
     parser.add_argument("--baudrate", type=int, default=9600, help="Serial baudrate. Default: 9600.")
@@ -27,11 +27,16 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Skip the initial +++ AT-mode entry step. Use only when the module is already in AT mode.",
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "--skip-exit-at",
+        action="store_true",
+        help="Skip the final +++ AT-mode exit step after a successful check.",
+    )
+    return parser.parse_args(argv)
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
     client = SerialClient(port=args.port, baudrate=args.baudrate, timeout=args.timeout)
     at = AtClient(client)
 
@@ -51,19 +56,27 @@ def main() -> int:
 
         print(f"TX: {args.command}")
         response = at.send_cmd(args.command, expected=args.expected, timeout=args.timeout)
+        print(f"RX: {response.response.strip()}")
+        if not response.passed:
+            print(f"FAIL: expected response containing {args.expected!r} within {args.timeout}s")
+            return 1
+
+        print("PASS")
+
+        if not args.skip_exit_at:
+            print("TX: +++")
+            exit_result = at.send_cmd("+++", expected="Exit AT", timeout=args.timeout)
+            print(f"RX: {exit_result.response.strip()}")
+            if not exit_result.passed:
+                print(f"FAIL: expected AT exit response containing {exit_result.expected!r} within {args.timeout}s")
+                return 1
+
+        return 0
     except (SerialClientError, AtClientError) as exc:
         print(f"FAIL: {exc}")
         return 1
     finally:
         client.close()
-
-    print(f"RX: {response.response.strip()}")
-    if response.passed:
-        print("PASS")
-        return 0
-
-    print(f"FAIL: expected response containing {args.expected!r} within {args.timeout}s")
-    return 1
 
 
 if __name__ == "__main__":

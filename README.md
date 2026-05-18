@@ -14,7 +14,7 @@ Phase 1 provides a minimal serial connectivity check for a single LoRa module.
 
 ### Check a module over serial
 
-The checker enters AT mode first by sending `+++\r\n` and waiting for `Entry AT`, then sends the requested AT command with `\r\n` appended.
+The checker enters AT mode first by sending `+++\r\n` and waiting for `Entry AT`, then sends the requested AT command with `\r\n` appended. After the requested AT command passes, it exits AT mode by sending `+++\r\n` and waiting for `Exit AT`.
 
 Windows example:
 
@@ -40,6 +40,12 @@ If the module is already in AT mode, skip the entry step:
 python lora_auto/examples/check_serial.py --port COM3 --skip-enter-at
 ```
 
+To keep the module in AT mode after a successful check, skip the exit step:
+
+```bash
+python lora_auto/examples/check_serial.py --port COM3 --skip-exit-at
+```
+
 Successful output contains:
 
 ```text
@@ -48,6 +54,8 @@ RX: Entry AT
 TX: AT
 RX: OK
 PASS
+TX: +++
+RX: Exit AT
 ```
 
 ## Phase 3: A/B device configuration baseline
