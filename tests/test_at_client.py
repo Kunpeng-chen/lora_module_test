@@ -7,11 +7,19 @@ from lora_auto.libs.serial_client import SerialClientError, SerialResponse
 
 
 class FakeSerialClient:
-    def __init__(self, response: SerialResponse | None = None, fail_write: bool = False) -> None:
+    def __init__(
+        self,
+        response: SerialResponse | None = None,
+        fail_write: bool = False,
+        read_all_data: str = "",
+    ) -> None:
         self.response = response or SerialResponse(data="OK\r\n", matched=True)
         self.fail_write = fail_write
+        self.read_all_data = read_all_data
         self.commands: list[tuple[str, bool]] = []
         self.reads: list[tuple[str, float]] = []
+        self.read_alls: list[float] = []
+        self.cleared = 0
 
     def write_text(self, text: str, append_newline: bool = True) -> None:
         if self.fail_write:
@@ -21,6 +29,13 @@ class FakeSerialClient:
     def read_until(self, expected: str, timeout: float = 2.0) -> SerialResponse:
         self.reads.append((expected, timeout))
         return self.response
+
+    def read_all(self, timeout: float = 2.0) -> str:
+        self.read_alls.append(timeout)
+        return self.read_all_data
+
+    def clear_buffer(self) -> None:
+        self.cleared += 1
 
 
 def test_send_cmd_returns_passed_result_for_expected_response() -> None:
@@ -67,6 +82,23 @@ def test_enter_at_sends_escape_sequence_with_crlf() -> None:
     assert result.passed is True
     assert fake.commands == [("+++", True)]
     assert fake.reads == [("Entry AT", 0.5)]
+
+
+def test_exit_at_drains_reset_banner_and_clears_buffer() -> None:
+    fake = FakeSerialClient(
+        SerialResponse(data="Exit AT\r\n", matched=True),
+        read_all_data="Power on\r\n",
+    )
+    client = AtClient(fake)  # type: ignore[arg-type]
+
+    result = client.exit_at(timeout=0.5, reset_drain_timeout=0.25)
+
+    assert result.passed is True
+    assert result.response == "Exit AT\r\nPower on\r\n"
+    assert fake.commands == [("+++", True)]
+    assert fake.reads == [("Exit AT", 0.5)]
+    assert fake.read_alls == [0.25]
+    assert fake.cleared == 1
 
 
 def test_reset_sends_reset_command_with_longer_timeout() -> None:

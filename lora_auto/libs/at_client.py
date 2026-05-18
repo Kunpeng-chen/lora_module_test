@@ -45,6 +45,38 @@ class AtClient:
             timeout=timeout,
         )
 
+    def exit_at(
+        self,
+        timeout: float = 2.0,
+        reset_drain_timeout: float = 1.0,
+        expected: str = "Exit AT",
+    ) -> AtCommandResult:
+        """Exit AT mode and drain reset banner residue.
+
+        The module may output ``Power on`` after ``Exit AT``. ``read_until``
+        returns as soon as ``Exit AT`` is seen, so this method drains the short
+        reset banner window and then clears buffers to avoid leaking stale
+        ``Power on`` into the next case.
+        """
+
+        result = self.send_cmd("+++", expected=expected, timeout=timeout)
+        drained = ""
+        try:
+            drained = self.serial.read_all(timeout=reset_drain_timeout)
+            self.serial.clear_buffer()
+        except SerialClientError as exc:
+            raise AtClientError(f"failed to drain AT exit response: {exc}") from exc
+
+        response = result.response + drained
+        assertion: AssertionResult = assert_contains(result.response, expected)
+        return AtCommandResult(
+            command=result.command,
+            response=response,
+            expected=result.expected,
+            passed=result.passed and assertion.passed,
+            message=assertion.message,
+        )
+
     def send_cmd(
         self,
         cmd: str,

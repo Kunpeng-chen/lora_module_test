@@ -10,12 +10,16 @@ class FakeSerialClient:
     def __init__(self) -> None:
         self.opened = False
         self.closed = False
+        self.cleared = 0
 
     def open(self) -> None:
         self.opened = True
 
     def close(self) -> None:
         self.closed = True
+
+    def clear_buffer(self) -> None:
+        self.cleared += 1
 
 
 class FakeAtClient:
@@ -60,6 +64,12 @@ class FakeAtClient:
         )
 
 
+def make_device(at: FakeAtClient, name: str = "A", role: str | None = None, baudrate: int = 9600) -> tuple[LoraDevice, FakeSerialClient]:
+    serial = FakeSerialClient()
+    device = LoraDevice(name, "COM3", baudrate=baudrate, role=role, serial_client=serial, at_client=at)  # type: ignore[arg-type]
+    return device, serial
+
+
 def test_device_open_and_close_delegate_to_serial_client() -> None:
     serial = FakeSerialClient()
     at = FakeAtClient()
@@ -77,10 +87,11 @@ def test_device_open_and_close_delegate_to_serial_client() -> None:
 
 def test_configure_transparent_mode_executes_expected_command_sequence() -> None:
     at = FakeAtClient()
-    device = LoraDevice("A", "COM3", at_client=at)  # type: ignore[arg-type]
+    device, serial = make_device(at)
 
     steps = device.configure_transparent_mode()
 
+    assert serial.cleared == 1
     assert [step.command for step in steps] == [
         "+++",
         "AT+SLEEP2",
@@ -102,10 +113,11 @@ def test_configure_transparent_mode_executes_expected_command_sequence() -> None
 
 def test_configure_transparent_mode_supports_custom_parameters() -> None:
     at = FakeAtClient()
-    device = LoraDevice("B", "COM4", baudrate=115200, role="receiver", at_client=at)  # type: ignore[arg-type]
+    device, serial = make_device(at, name="B", role="receiver", baudrate=115200)
 
     steps = device.configure_transparent_mode(sleep="1", mode="0", level="3", channel="12")
 
+    assert serial.cleared == 1
     assert device.role == "receiver"
     assert device.baudrate == 115200
     assert [step.command for step in steps] == [
@@ -120,17 +132,20 @@ def test_configure_transparent_mode_supports_custom_parameters() -> None:
 
 def test_configure_transparent_mode_stops_on_failed_command() -> None:
     at = FakeAtClient(fail_command="AT+LEVEL2")
-    device = LoraDevice("A", "COM3", at_client=at)  # type: ignore[arg-type]
+    device, serial = make_device(at)
 
-    with pytest.raises(LoraDeviceError, match="AT\+LEVEL2"):
+    with pytest.raises(LoraDeviceError, match=r"AT\+LEVEL2"):
         device.configure_transparent_mode()
 
+    assert serial.cleared == 1
     assert [call[0] for call in at.calls] == ["+++", "AT+SLEEP2", "AT+MODE0", "AT+LEVEL2"]
 
 
 def test_configure_transparent_mode_wraps_at_client_errors() -> None:
     at = FakeAtClient(raise_command="AT+MODE0")
-    device = LoraDevice("A", "COM3", at_client=at)  # type: ignore[arg-type]
+    device, serial = make_device(at)
 
-    with pytest.raises(LoraDeviceError, match="failed to execute 'AT\+MODE0'"):
+    with pytest.raises(LoraDeviceError, match=r"failed to execute 'AT\+MODE0'"):
         device.configure_transparent_mode()
+
+    assert serial.cleared == 1

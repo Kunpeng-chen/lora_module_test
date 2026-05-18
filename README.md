@@ -14,7 +14,7 @@ Phase 1 provides a minimal serial connectivity check for a single LoRa module.
 
 ### Check a module over serial
 
-The checker enters AT mode first by sending `+++\r\n` and waiting for `Entry AT`, then sends the requested AT command with `\r\n` appended. After the requested AT command passes, it exits AT mode by sending `+++\r\n` and waiting for `Exit AT`.
+The checker enters AT mode first by sending `+++\r\n` and waiting for `Entry AT`, then sends the requested AT command with `\r\n` appended. After the requested AT command passes, it exits AT mode by sending `+++\r\n` and waiting for `Exit AT`. The exit flow also drains the short reset banner window, such as `Power on`, and clears serial buffers so stale reset output does not affect the next step.
 
 Windows example:
 
@@ -93,7 +93,7 @@ Field meanings:
 | `baudrate` | Serial baudrate used by the module. |
 | `role` | Logical test role, for example `sender` or `receiver`. |
 
-The Phase 3 transparent-mode configuration flow uses these AT commands internally. Each AT command is sent with `\r\n` appended:
+The Phase 3 transparent-mode configuration flow clears stale serial buffers first, then uses these AT commands internally. Each AT command is sent with `\r\n` appended:
 
 ```text
 +++
@@ -140,7 +140,7 @@ Useful options:
 | `--log-level` | Python logging level. |
 | `--report-dir` | Report output directory. |
 
-For `at` cases, the runner enters AT mode first, runs the configured AT steps, then exits AT mode before the next case. If the config case fails, the transparent-transfer case is reported as `BLOCKED` instead of continuing with invalid preconditions.
+For `at` cases, the runner enters AT mode first, runs the configured AT steps, then exits AT mode before the next case. The AT exit flow drains reset banner output and clears stale serial buffers. If the config case fails, the transparent-transfer case is reported as `BLOCKED` instead of continuing with invalid preconditions.
 
 Successful transparent-transfer output contains:
 

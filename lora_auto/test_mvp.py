@@ -245,7 +245,7 @@ class MvpRunner:
                     f"AT command {command!r} failed: expected {expected!r}, response {result.response!r}"
                 )
 
-        exit_result = device.at.send_cmd("+++", expected="Exit AT")
+        exit_result = device.at.exit_at()
         executed_steps.append(f"{device.name}: +++ -> {exit_result.response!r}")
         if not exit_result.passed:
             raise MvpRunnerError(
@@ -264,6 +264,7 @@ class MvpRunner:
         executed_steps: list[str] = []
         for device_name in device_names:
             device = self._get_device(device_name)
+            device.serial.clear_buffer()
             try:
                 command_steps = device.configure_transparent_mode(
                     sleep=str(config.get("sleep", "2")),

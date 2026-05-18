@@ -65,7 +65,7 @@ def main(argv: list[str] | None = None) -> int:
 
         if not args.skip_exit_at:
             print("TX: +++")
-            exit_result = at.send_cmd("+++", expected="Exit AT", timeout=args.timeout)
+            exit_result = at.exit_at(timeout=args.timeout)
             print(f"RX: {exit_result.response.strip()}")
             if not exit_result.passed:
                 print(f"FAIL: expected AT exit response containing {exit_result.expected!r} within {args.timeout}s")
