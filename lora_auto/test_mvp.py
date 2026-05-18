@@ -137,46 +137,69 @@ class MvpRunner:
         except Exception as exc:
             end_time = utc_now_iso()
             duration = time.monotonic() - start_monotonic
-            log_file = write_device_log(
-                self.report_dir,
-                case_id,
-                "runner",
-                [
-                    f"case_id={case_id}",
-                    f"case_name={case_name}",
-                    f"status=FAIL",
-                    f"failure_reason={exc}",
-                ],
-            )
-            return CaseResult(
+            return self._build_result(
                 case_id=case_id,
                 case_name=case_name,
                 status="FAIL",
-                failure_reason=str(exc),
                 start_time=start_time,
                 end_time=end_time,
                 duration=duration,
-                steps=tuple(steps),
-                log_file=log_file,
+                steps=steps,
+                failure_reason=str(exc),
             )
 
         end_time = utc_now_iso()
         duration = time.monotonic() - start_monotonic
-        log_file = write_device_log(
-            self.report_dir,
-            case_id,
-            "runner",
-            [
-                f"case_id={case_id}",
-                f"case_name={case_name}",
-                "status=PASS",
-                *steps,
-            ],
-        )
-        return CaseResult(
+        return self._build_result(
             case_id=case_id,
             case_name=case_name,
             status="PASS",
+            start_time=start_time,
+            end_time=end_time,
+            duration=duration,
+            steps=steps,
+        )
+
+    def build_blocked_result(self, case: dict[str, Any], reason: str) -> CaseResult:
+        """Create a blocked result for a case that should not be executed."""
+
+        timestamp = utc_now_iso()
+        return self._build_result(
+            case_id=case["id"],
+            case_name=case["name"],
+            status="BLOCKED",
+            start_time=timestamp,
+            end_time=timestamp,
+            duration=0.0,
+            steps=[],
+            failure_reason=reason,
+        )
+
+    def _build_result(
+        self,
+        case_id: str,
+        case_name: str,
+        status: str,
+        start_time: str,
+        end_time: str,
+        duration: float,
+        steps: list[str],
+        failure_reason: str | None = None,
+    ) -> CaseResult:
+        log_lines = [
+            f"case_id={case_id}",
+            f"case_name={case_name}",
+            f"status={status}",
+        ]
+        if failure_reason:
+            log_lines.append(f"failure_reason={failure_reason}")
+        log_lines.extend(steps)
+        log_file = write_device_log(self.report_dir, case_id, "runner", log_lines)
+        return CaseResult(
+            case_id=case_id,
+            case_name=case_name,
+            status=status,
+            failure_reason=failure_reason,
             start_time=start_time,
             end_time=end_time,
             duration=duration,
@@ -221,6 +244,13 @@ class MvpRunner:
                 raise MvpRunnerError(
                     f"AT command {command!r} failed: expected {expected!r}, response {result.response!r}"
                 )
+
+        exit_result = device.at.send_cmd("+++", expected="Exit AT")
+        executed_steps.append(f"{device.name}: +++ -> {exit_result.response!r}")
+        if not exit_result.passed:
+            raise MvpRunnerError(
+                f"failed to exit AT mode: expected {exit_result.expected!r}, response {exit_result.response!r}"
+            )
         return executed_steps
 
     def _run_config_case(self, case: dict[str, Any]) -> list[str]:
@@ -271,6 +301,33 @@ class MvpRunner:
         ]
 
 
+def should_block_case(case: dict[str, Any], results: list[CaseResult]) -> str | None:
+    """Return a blocking reason for cases whose prerequisites failed."""
+
+    if case.get("type") != "transparent_transfer":
+        return None
+    failed_config = next(
+        (result for result in results if result.case_id == "MVP-002" and result.status != "PASS"),
+        None,
+    )
+    if failed_config is None:
+        return None
+    return f"前置配置用例 MVP-002 未通过，跳过透明传输测试：{failed_config.failure_reason}"
+
+
+def run_cases_with_dependencies(runner: MvpRunner, cases: list[dict[str, Any]]) -> list[CaseResult]:
+    """Run cases in order and block dependent cases when prerequisites fail."""
+
+    results: list[CaseResult] = []
+    for case in cases:
+        block_reason = should_block_case(case, results)
+        if block_reason is not None:
+            results.append(runner.build_blocked_result(case, block_reason))
+            continue
+        results.append(runner.run_case(case))
+    return results
+
+
 def to_report_case(result: CaseResult) -> ReportCase:
     """Convert runner result to serializable report entry."""
 
@@ -315,7 +372,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         runner.open_devices()
-        results = [runner.run_case(case) for case in cases]
+        results = run_cases_with_dependencies(runner, cases)
     finally:
         runner.close_devices()
 

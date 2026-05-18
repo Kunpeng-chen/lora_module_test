@@ -5,8 +5,16 @@ from pathlib import Path
 import pytest
 
 from lora_auto.libs.at_client import AtCommandResult
-from lora_auto.libs.lora_device import DeviceCommandStep
-from lora_auto.test_mvp import MvpRunner, MvpRunnerError, load_cases, load_devices, select_cases, to_report_case
+from lora_auto.libs.lora_device import DeviceCommandStep, LoraDeviceError
+from lora_auto.test_mvp import (
+    MvpRunner,
+    MvpRunnerError,
+    load_cases,
+    load_devices,
+    run_cases_with_dependencies,
+    select_cases,
+    to_report_case,
+)
 
 
 class FakeAt:
@@ -64,6 +72,7 @@ class FakeDevice:
         self.opened = False
         self.closed = False
         self.config_calls: list[dict[str, str]] = []
+        self.fail_config = False
 
     def open(self) -> None:
         self.opened = True
@@ -79,6 +88,8 @@ class FakeDevice:
         channel: str = "00",
     ) -> list[DeviceCommandStep]:
         self.config_calls.append({"sleep": sleep, "mode": mode, "level": level, "channel": channel})
+        if self.fail_config:
+            raise LoraDeviceError(f"{self.name}: config failed")
         return [
             DeviceCommandStep(command="+++", expected="Entry AT", response="Entry AT", passed=True),
             DeviceCommandStep(command=f"AT+SLEEP{sleep}", expected="OK", response="OK", passed=True),
@@ -136,7 +147,7 @@ def test_select_cases_raises_for_unknown_case() -> None:
         select_cases([{"id": "MVP-001", "name": "x", "type": "at"}], "MVP-999")
 
 
-def test_runner_executes_at_case_successfully(tmp_path: Path) -> None:
+def test_runner_executes_at_case_successfully_and_exits_at(tmp_path: Path) -> None:
     device = FakeDevice("A")
     runner = MvpRunner({"A": device}, report_dir=tmp_path)
 
@@ -156,9 +167,13 @@ def test_runner_executes_at_case_successfully(tmp_path: Path) -> None:
     assert result.status == "PASS"
     assert result.log_file is not None
     assert Path(result.log_file).exists()
-    assert device.at.commands == [("+++", "Entry AT"), ("AT", "OK"), ("AT+VERSION", "+VERSION")]
-    assert "+++)" not in "\n".join(result.steps)
-    assert "A: +++" in "\n".join(result.steps)
+    assert device.at.commands == [
+        ("+++", "Entry AT"),
+        ("AT", "OK"),
+        ("AT+VERSION", "+VERSION"),
+        ("+++", "Exit AT"),
+    ]
+    assert "A: +++ -> 'Exit AT'" in "\n".join(result.steps)
 
 
 def test_runner_stops_at_case_when_enter_at_fails(tmp_path: Path) -> None:
@@ -201,6 +216,40 @@ def test_runner_returns_fail_for_at_case_mismatch(tmp_path: Path) -> None:
     assert Path(result.log_file).exists()
     assert "AT command" in result.failure_reason
     assert device.at.commands == [("+++", "Entry AT"), ("AT", "OK")]
+
+
+def test_runner_returns_fail_when_at_exit_fails(tmp_path: Path) -> None:
+    device = FakeDevice("A")
+    device.at = FakeAt(fail_command="+++")
+    # First +++ should enter successfully, final +++ should fail.
+    calls = {"count": 0}
+
+    def enter_at() -> AtCommandResult:
+        device.at.commands.append(("+++", "Entry AT"))
+        return AtCommandResult("+++", "Entry AT", "Entry AT", True, "ok")
+
+    def send_cmd(command: str, expected: str = "OK") -> AtCommandResult:
+        device.at.commands.append((command, expected))
+        if command == "+++" and expected == "Exit AT":
+            return AtCommandResult(command, "Entry AT", expected, False, "failed")
+        return AtCommandResult(command, expected, expected, True, "ok")
+
+    device.at.enter_at = enter_at  # type: ignore[method-assign]
+    device.at.send_cmd = send_cmd  # type: ignore[method-assign]
+    runner = MvpRunner({"A": device}, report_dir=tmp_path)
+
+    result = runner.run_case(
+        {
+            "id": "MVP-001",
+            "name": "AT 基础指令测试",
+            "type": "at",
+            "device": "A",
+            "steps": [{"command": "AT", "expected": "OK"}],
+        }
+    )
+
+    assert result.status == "FAIL"
+    assert "failed to exit AT mode" in result.failure_reason
 
 
 def test_runner_executes_config_case_for_multiple_devices(tmp_path: Path) -> None:
@@ -273,6 +322,43 @@ def test_runner_returns_fail_for_transparent_transfer_timeout(tmp_path: Path) ->
     assert "receiver did not receive expected payload" in result.failure_reason
     assert "sent='123456789'" in result.failure_reason
     assert "received=''" in result.failure_reason
+
+
+def test_run_cases_blocks_transparent_transfer_when_config_fails(tmp_path: Path) -> None:
+    dev_a = FakeDevice("A")
+    dev_b = FakeDevice("B")
+    dev_a.fail_config = True
+    runner = MvpRunner({"A": dev_a, "B": dev_b}, report_dir=tmp_path)
+    cases = [
+        {
+            "id": "MVP-002",
+            "name": "A/B 模块配置为透明传输",
+            "type": "config",
+            "devices": ["A", "B"],
+            "config": {"sleep": "2", "mode": "0", "level": "2", "channel": "00"},
+        },
+        {
+            "id": "MVP-003",
+            "name": "透明传输收发一致性测试",
+            "type": "transparent_transfer",
+            "sender": "A",
+            "receiver": "B",
+            "payload": "123456789",
+            "expected": "123456789",
+            "timeout": 5,
+        },
+    ]
+
+    results = run_cases_with_dependencies(runner, cases)
+
+    assert results[0].status == "FAIL"
+    assert results[1].status == "BLOCKED"
+    assert "MVP-002" in results[1].failure_reason
+    assert sender_not_used(dev_a, dev_b)
+
+
+def sender_not_used(dev_a: FakeDevice, dev_b: FakeDevice) -> bool:
+    return dev_a.serial.written == [] and dev_b.serial.written == []
 
 
 def test_runner_opens_and_closes_all_devices() -> None:
