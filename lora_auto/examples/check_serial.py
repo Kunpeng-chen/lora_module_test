@@ -27,6 +27,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Skip the initial +++ AT-mode entry step. Use only when the module is already in AT mode.",
     )
+    parser.add_argument(
+        "--skip-exit-at",
+        action="store_true",
+        help="Skip the final +++ AT-mode exit step after a successful check.",
+    )
     return parser.parse_args()
 
 
@@ -51,19 +56,27 @@ def main() -> int:
 
         print(f"TX: {args.command}")
         response = at.send_cmd(args.command, expected=args.expected, timeout=args.timeout)
+        print(f"RX: {response.response.strip()}")
+        if not response.passed:
+            print(f"FAIL: expected response containing {args.expected!r} within {args.timeout}s")
+            return 1
+
+        print("PASS")
+
+        if not args.skip_exit_at:
+            print("TX: +++")
+            exit_result = at.send_cmd("+++", expected="Exit AT", timeout=args.timeout)
+            print(f"RX: {exit_result.response.strip()}")
+            if not exit_result.passed:
+                print(f"FAIL: expected AT exit response containing {exit_result.expected!r} within {args.timeout}s")
+                return 1
+
+        return 0
     except (SerialClientError, AtClientError) as exc:
         print(f"FAIL: {exc}")
         return 1
     finally:
         client.close()
-
-    print(f"RX: {response.response.strip()}")
-    if response.passed:
-        print("PASS")
-        return 0
-
-    print(f"FAIL: expected response containing {args.expected!r} within {args.timeout}s")
-    return 1
 
 
 if __name__ == "__main__":
