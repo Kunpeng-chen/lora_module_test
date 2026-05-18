@@ -288,13 +288,16 @@ class MvpRunner:
         sender.serial.clear_buffer()
         receiver.serial.clear_buffer()
         sender.serial.write_text(payload, append_newline=False)
-        received = receiver.serial.read_all(timeout=timeout)
+        response = receiver.serial.read_until(expected, timeout=timeout)
+        received = response.data
 
         assertion = assert_payload_equal(expected, received)
         if not assertion.passed:
+            received_hex = received.encode("utf-8", errors="replace").hex(" ").upper()
             raise MvpRunnerError(
                 "receiver did not receive expected payload within "
-                f"{timeout}s; sent={payload!r}, received={received!r}"
+                f"{timeout}s; sent={payload!r}, received={received!r}, "
+                f"received_hex={received_hex!r}, rx_bytes={len(received.encode('utf-8', errors='replace'))}"
             )
         return [
             f"{sender.name}: sent={payload!r}",
