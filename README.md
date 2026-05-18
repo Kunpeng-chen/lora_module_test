@@ -40,7 +40,53 @@ RX: OK
 PASS
 ```
 
-### Run tests
+## Phase 3: A/B device configuration baseline
+
+Phase 3 adds a device abstraction and an example A/B serial configuration file.
+
+Example config file:
+
+```text
+lora_auto/config/devices.yaml
+```
+
+Default Windows-style example:
+
+```yaml
+devices:
+  A:
+    port: "COM3"
+    baudrate: 9600
+    role: sender
+
+  B:
+    port: "COM4"
+    baudrate: 9600
+    role: receiver
+```
+
+For Linux/macOS, replace `port` values with serial device paths such as `/dev/ttyUSB0` and `/dev/ttyUSB1`.
+
+Field meanings:
+
+| Field | Description |
+|---|---|
+| `port` | Serial port connected to the LoRa module. |
+| `baudrate` | Serial baudrate used by the module. |
+| `role` | Logical test role, for example `sender` or `receiver`. |
+
+The Phase 3 transparent-mode configuration flow uses these AT commands internally:
+
+```text
++++
+AT+SLEEP2
+AT+MODE0
+AT+LEVEL2
+AT+CHANNEL00
+AT+RESET
+```
+
+## Run tests
 
 ```bash
 pytest
