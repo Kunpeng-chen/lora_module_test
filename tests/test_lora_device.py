@@ -28,7 +28,7 @@ class FakeAtClient:
 
     def enter_at(self, timeout: float = 2.0) -> AtCommandResult:
         command = "+++"
-        self.calls.append((command, self.at_entry_expected, timeout, False))
+        self.calls.append((command, self.at_entry_expected, timeout, True))
         return self._result(command, self.at_entry_expected)
 
     def send_cmd(
@@ -91,7 +91,7 @@ def test_configure_transparent_mode_executes_expected_command_sequence() -> None
     ]
     assert all(step.passed for step in steps)
     assert at.calls == [
-        ("+++", "Entry AT", 2.0, False),
+        ("+++", "Entry AT", 2.0, True),
         ("AT+SLEEP2", "OK", 2.0, True),
         ("AT+MODE0", "OK", 2.0, True),
         ("AT+LEVEL2", "OK", 2.0, True),

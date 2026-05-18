@@ -32,13 +32,17 @@ class AtClient:
         self.at_entry_expected = at_entry_expected
 
     def enter_at(self, timeout: float = 2.0) -> AtCommandResult:
-        """Enter AT mode using the LoRa module escape sequence."""
+        """Enter AT mode using the LoRa module escape sequence.
+
+        The manual defines AT command frames as ending with CRLF, so the escape
+        sequence is also sent through ``write_text`` with the default CRLF
+        terminator.
+        """
 
         return self.send_cmd(
             "+++",
             expected=self.at_entry_expected,
             timeout=timeout,
-            append_newline=False,
         )
 
     def send_cmd(
