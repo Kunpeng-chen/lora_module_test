@@ -386,7 +386,7 @@ README 影响：
 
 ---
 
-## Phase 5：报告、日志与 README 收尾 [ ]
+## Phase 5：报告、日志与 README 收尾 [√]
 
 目标：
 
@@ -438,6 +438,14 @@ README 影响：
 - README 已同步更新 MVP 使用方式
 - 既有测试继续通过
 - 当前计划中对应 Phase 只有在实现 PR 合并、CI 成功、README 检查完成后才可从 `[ ]` 改为 `[√]`
+
+完成记录：
+
+- 实现 PR：#5 `feat: phase5 report logging readme`
+- 合并方式：squash merge
+- 合并提交：`f88bfbc0a753d9c4c0729415a2d2f6b1671ece0e`
+- CI：`CI` workflow completed / success
+- README：已检查并更新报告输出位置、JSON/Markdown 报告和日志目录说明
 
 建议优先级：高
 
