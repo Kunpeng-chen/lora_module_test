@@ -104,6 +104,8 @@ AT+CHANNEL00
 AT+RESET
 ```
 
+After `AT+RESET` returns `OK`, the reset flow also drains delayed boot-banner output such as `Power on` and clears serial buffers before the next case starts.
+
 ## Phase 4: MVP case runner
 
 Phase 4 adds a minimal YAML-driven runner for three MVP case types:
@@ -141,6 +143,8 @@ Useful options:
 | `--report-dir` | Report output directory. |
 
 For `at` cases, the runner enters AT mode first, runs the configured AT steps, then exits AT mode before the next case. The AT exit flow drains reset banner output and clears stale serial buffers. If the config case fails, the transparent-transfer case is reported as `BLOCKED` instead of continuing with invalid preconditions.
+
+For `transparent_transfer` cases, the runner clears sender and receiver buffers before sending, then reads until the expected payload appears or the timeout expires. Failure output includes the sent payload, received text, received hex bytes, and received byte count to make stale boot banners, empty reads, and garbled serial data easier to distinguish.
 
 Successful transparent-transfer output contains:
 
