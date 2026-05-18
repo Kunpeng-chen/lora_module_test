@@ -101,15 +101,21 @@ def test_exit_at_drains_reset_banner_and_clears_buffer() -> None:
     assert fake.cleared == 1
 
 
-def test_reset_sends_reset_command_with_longer_timeout() -> None:
-    fake = FakeSerialClient(SerialResponse(data="OK\r\n", matched=True))
+def test_reset_drains_reset_banner_and_clears_buffer() -> None:
+    fake = FakeSerialClient(
+        SerialResponse(data="OK\r\n", matched=True),
+        read_all_data="Power on\r\n",
+    )
     client = AtClient(fake)  # type: ignore[arg-type]
 
-    result = client.reset(timeout=3.0)
+    result = client.reset(timeout=3.0, reset_drain_timeout=0.25)
 
     assert result.passed is True
+    assert result.response == "OK\r\nPower on\r\n"
     assert fake.commands == [("AT+RESET", True)]
     assert fake.reads == [("OK", 3.0)]
+    assert fake.read_alls == [0.25]
+    assert fake.cleared == 1
 
 
 def test_require_cmd_raises_when_command_fails() -> None:

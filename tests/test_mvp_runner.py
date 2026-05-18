@@ -6,6 +6,7 @@ import pytest
 
 from lora_auto.libs.at_client import AtCommandResult
 from lora_auto.libs.lora_device import DeviceCommandStep, LoraDeviceError
+from lora_auto.libs.serial_client import SerialResponse
 from lora_auto.test_mvp import (
     MvpRunner,
     MvpRunnerError,
@@ -61,6 +62,7 @@ class FakeSerial:
         self.read_data = read_data
         self.cleared = 0
         self.written: list[tuple[str, bool]] = []
+        self.read_until_calls: list[tuple[str, float]] = []
 
     def clear_buffer(self) -> None:
         self.cleared += 1
@@ -70,6 +72,10 @@ class FakeSerial:
 
     def read_all(self, timeout: float = 2.0) -> str:
         return self.read_data
+
+    def read_until(self, expected: str, timeout: float = 2.0) -> SerialResponse:
+        self.read_until_calls.append((expected, timeout))
+        return SerialResponse(data=self.read_data, matched=expected in self.read_data)
 
 
 class FakeDevice:
@@ -108,7 +114,7 @@ class FakeDevice:
             DeviceCommandStep(command=f"AT+MODE{mode}", expected="OK", response="OK", passed=True),
             DeviceCommandStep(command=f"AT+LEVEL{level}", expected="OK", response="OK", passed=True),
             DeviceCommandStep(command=f"AT+CHANNEL{channel}", expected="OK", response="OK", passed=True),
-            DeviceCommandStep(command="AT+RESET", expected="OK", response="OK", passed=True),
+            DeviceCommandStep(command="AT+RESET", expected="OK", response="OK\r\nPower on\r\n", passed=True),
         ]
 
 
@@ -270,6 +276,7 @@ def test_runner_executes_config_case_for_multiple_devices(tmp_path: Path) -> Non
     assert dev_a.serial.cleared >= 1
     assert dev_b.serial.cleared >= 1
     assert "AT+RESET" in "\n".join(result.steps)
+    assert "Power on" in "\n".join(result.steps)
 
 
 def test_runner_executes_transparent_transfer_case_successfully(tmp_path: Path) -> None:
@@ -295,13 +302,14 @@ def test_runner_executes_transparent_transfer_case_successfully(tmp_path: Path) 
     assert sender.serial.cleared == 1
     assert receiver.serial.cleared == 1
     assert sender.serial.written == [("123456789", False)]
+    assert receiver.serial.read_until_calls == [("123456789", 5.0)]
     assert "sent='123456789'" in "\n".join(result.steps)
 
 
 def test_runner_returns_fail_for_transparent_transfer_timeout(tmp_path: Path) -> None:
     sender = FakeDevice("A")
     receiver = FakeDevice("B")
-    receiver.serial = FakeSerial(read_data="")
+    receiver.serial = FakeSerial(read_data="Power on\r\n")
     runner = MvpRunner({"A": sender, "B": receiver}, report_dir=tmp_path)
 
     result = runner.run_case(
@@ -320,7 +328,10 @@ def test_runner_returns_fail_for_transparent_transfer_timeout(tmp_path: Path) ->
     assert result.status == "FAIL"
     assert "receiver did not receive expected payload" in result.failure_reason
     assert "sent='123456789'" in result.failure_reason
-    assert "received=''" in result.failure_reason
+    assert "received='Power on\\r\\n'" in result.failure_reason
+    assert "received_hex='50 6F 77 65 72 20 6F 6E 0D 0A'" in result.failure_reason
+    assert "rx_bytes=10" in result.failure_reason
+    assert receiver.serial.read_until_calls == [("123456789", 5.0)]
 
 
 def test_run_cases_blocks_transparent_transfer_when_config_fails(tmp_path: Path) -> None:
