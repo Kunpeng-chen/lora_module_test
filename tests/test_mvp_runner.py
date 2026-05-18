@@ -33,6 +33,17 @@ class FakeAt:
             message="ok" if passed else "failed",
         )
 
+    def exit_at(self) -> AtCommandResult:
+        self.commands.append(("+++", "Exit AT"))
+        passed = self.fail_command != "exit+++"
+        return AtCommandResult(
+            command="+++",
+            response="Exit AT\r\nPower on\r\n" if passed else "Entry AT",
+            expected="Exit AT",
+            passed=passed,
+            message="ok" if passed else "failed",
+        )
+
     def send_cmd(self, command: str, expected: str = "OK") -> AtCommandResult:
         self.commands.append((command, expected))
         passed = self.fail_command != command
@@ -87,6 +98,7 @@ class FakeDevice:
         level: str = "2",
         channel: str = "00",
     ) -> list[DeviceCommandStep]:
+        self.serial.clear_buffer()
         self.config_calls.append({"sleep": sleep, "mode": mode, "level": level, "channel": channel})
         if self.fail_config:
             raise LoraDeviceError(f"{self.name}: config failed")
@@ -173,7 +185,7 @@ def test_runner_executes_at_case_successfully_and_exits_at(tmp_path: Path) -> No
         ("AT+VERSION", "+VERSION"),
         ("+++", "Exit AT"),
     ]
-    assert "A: +++ -> 'Exit AT'" in "\n".join(result.steps)
+    assert "A: +++ -> 'Exit AT\\r\\nPower on\\r\\n'" in "\n".join(result.steps)
 
 
 def test_runner_stops_at_case_when_enter_at_fails(tmp_path: Path) -> None:
@@ -220,22 +232,7 @@ def test_runner_returns_fail_for_at_case_mismatch(tmp_path: Path) -> None:
 
 def test_runner_returns_fail_when_at_exit_fails(tmp_path: Path) -> None:
     device = FakeDevice("A")
-    device.at = FakeAt(fail_command="+++")
-    # First +++ should enter successfully, final +++ should fail.
-    calls = {"count": 0}
-
-    def enter_at() -> AtCommandResult:
-        device.at.commands.append(("+++", "Entry AT"))
-        return AtCommandResult("+++", "Entry AT", "Entry AT", True, "ok")
-
-    def send_cmd(command: str, expected: str = "OK") -> AtCommandResult:
-        device.at.commands.append((command, expected))
-        if command == "+++" and expected == "Exit AT":
-            return AtCommandResult(command, "Entry AT", expected, False, "failed")
-        return AtCommandResult(command, expected, expected, True, "ok")
-
-    device.at.enter_at = enter_at  # type: ignore[method-assign]
-    device.at.send_cmd = send_cmd  # type: ignore[method-assign]
+    device.at = FakeAt(fail_command="exit+++")
     runner = MvpRunner({"A": device}, report_dir=tmp_path)
 
     result = runner.run_case(
@@ -270,6 +267,8 @@ def test_runner_executes_config_case_for_multiple_devices(tmp_path: Path) -> Non
     assert result.status == "PASS"
     assert dev_a.config_calls == [{"sleep": "2", "mode": "0", "level": "2", "channel": "00"}]
     assert dev_b.config_calls == [{"sleep": "2", "mode": "0", "level": "2", "channel": "00"}]
+    assert dev_a.serial.cleared >= 1
+    assert dev_b.serial.cleared >= 1
     assert "AT+RESET" in "\n".join(result.steps)
 
 
