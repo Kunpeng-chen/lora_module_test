@@ -1,0 +1,10 @@
+devices:
+  A:
+    port: "COM3"
+    baudrate: 9600
+    role: sender
+
+  B:
+    port: "COM4"
+    baudrate: 9600
+    role: receiver
