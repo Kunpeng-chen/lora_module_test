@@ -37,6 +37,33 @@ def test_phase2_at_cases_include_command_expected_and_manual_ref() -> None:
             assert step["expected"]["mode"] in {"contains", "contains_all", "regex", "exact"}
 
 
+def test_phase4_error_at_cases_are_expanded_and_numbered() -> None:
+    cases = [case for case in load_formal_case_directory(FORMAL_CASE_DIR) if case["suite"] == "error_at"]
+
+    assert len(cases) == 57
+    assert [case["id"] for case in cases] == [f"ERRAT-{index:03d}" for index in range(1, 58)]
+
+
+def test_phase4_error_at_cases_use_expected_error_codes_and_post_check() -> None:
+    cases = [case for case in load_formal_case_directory(FORMAL_CASE_DIR) if case["suite"] == "error_at"]
+
+    for index, case in enumerate(cases, start=1):
+        expected_error = "ERROR=104" if index <= 13 else "ERROR=105"
+        assert case["automation_level"] == "auto"
+        assert case["metadata"]["run_policy"] == "auto"
+        assert case["metadata"]["destructive"] is False
+        assert case["metadata"]["state_changing"] is False
+        assert case["steps"][0]["action"] == "send_at"
+        assert case["steps"][0]["expected"] == {"mode": "contains", "value": expected_error}
+        assert case["steps"][1] == {
+            "action": "post_check",
+            "device": "A",
+            "command": "AT",
+            "expected": {"mode": "contains", "value": "OK"},
+        }
+        assert "EEROR" not in str(case)
+
+
 def test_phase2_at_default_is_manual_confirm_and_destructive() -> None:
     cases = {case["id"]: case for case in load_formal_case_directory(FORMAL_CASE_DIR)}
 
