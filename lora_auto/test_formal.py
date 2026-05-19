@@ -91,6 +91,12 @@ def load_formal_cases(cases_dir: str | Path) -> list[dict[str, Any]]:
     return load_formal_case_directory(cases_dir)
 
 
+def is_query_only_case(case: dict[str, Any]) -> bool:
+    """Return whether all case steps are non-mutating AT query/send steps."""
+
+    return all(step.get("action") == "send_at" for step in case.get("steps", []))
+
+
 def is_auto_runnable(case: dict[str, Any]) -> bool:
     """Return whether a case is safe for default automatic execution."""
 
@@ -99,6 +105,8 @@ def is_auto_runnable(case: dict[str, Any]) -> bool:
         case.get("automation_level") == "auto"
         and metadata.get("run_policy") == "auto"
         and metadata.get("destructive") is not True
+        and metadata.get("state_changing") is not True
+        and is_query_only_case(case)
     )
 
 
@@ -130,7 +138,7 @@ def select_cases(
     auto_cases = [case for case in selected if is_auto_runnable(case)]
     if case_id is not None and not auto_cases:
         raise FormalRunnerError(
-            f"case {case_id!r} requires manual confirmation and is not selected by default"
+            f"case {case_id!r} requires manual confirmation or changes AT mode and is not selected by default"
         )
     return auto_cases
 
@@ -185,7 +193,7 @@ class FormalAtRunner:
                 end_time=utc_now_iso(),
                 duration=0.0,
                 steps=[],
-                failure_reason="case requires manual confirmation and is not run automatically",
+                failure_reason="case requires manual confirmation or changes AT mode and is not run automatically",
             )
 
         start_time = utc_now_iso()
@@ -193,6 +201,9 @@ class FormalAtRunner:
         executed_steps: list[str] = []
 
         try:
+            device_names = [step.get("device") for step in case.get("steps", []) if step.get("device")]
+            for device_name in dict.fromkeys(device_names):
+                executed_steps.extend(self.ensure_at_mode(self._get_device(device_name)))
             for step in case.get("steps", []):
                 executed_steps.append(self._run_step(case, step))
         except Exception as exc:
@@ -218,6 +229,36 @@ class FormalAtRunner:
             duration=duration,
             steps=executed_steps,
         )
+
+    def ensure_at_mode(self, device: LoraDevice) -> list[str]:
+        """Ensure a device is in AT mode before running query-style AT cases.
+
+        The method first probes with ``AT``. If the module is already in AT
+        mode, it returns after the OK response. If not, it sends ``+++`` to
+        enter AT mode, then verifies the mode by sending ``AT`` again.
+        """
+
+        probe = device.at.send_cmd("AT", expected="OK", timeout=0.5)
+        if probe.passed:
+            return [f"{device.name}: ensure_at_mode already in AT mode -> {probe.response!r}"]
+
+        enter = device.at.enter_at(timeout=2.0)
+        if not enter.passed:
+            raise FormalRunnerError(
+                f"{device.name}: failed to enter AT mode, response {enter.response!r}"
+            )
+
+        verify = device.at.send_cmd("AT", expected="OK", timeout=2.0)
+        if not verify.passed:
+            raise FormalRunnerError(
+                f"{device.name}: AT mode verification failed after entry, response {verify.response!r}"
+            )
+
+        return [
+            f"{device.name}: ensure_at_mode probe failed -> {probe.response!r}",
+            f"{device.name}: enter_at -> {enter.response!r}",
+            f"{device.name}: ensure_at_mode verified -> {verify.response!r}",
+        ]
 
     def _run_step(self, case: dict[str, Any], step: dict[str, Any]) -> str:
         action = step["action"]

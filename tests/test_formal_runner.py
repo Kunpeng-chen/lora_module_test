@@ -23,18 +23,23 @@ FORMAL_CASE_DIR = Path(__file__).resolve().parents[1] / "lora_auto" / "config" /
 
 
 class FakeAtClient:
-    def __init__(self, responses: dict[str, str]) -> None:
+    def __init__(self, responses: dict[str, str | list[str]]) -> None:
         self.responses = responses
         self.calls: list[str] = []
 
     def send_cmd(self, cmd: str, expected: str = "OK", timeout: float = 2.0, append_newline: bool = True):
         self.calls.append(cmd)
-        response = self.responses.get(cmd, expected)
+        raw_response = self.responses.get(cmd, expected)
+        if isinstance(raw_response, list):
+            response = raw_response.pop(0) if raw_response else ""
+        else:
+            response = raw_response
         return FakeAtResult(command=cmd, response=response, expected=expected, passed=expected in response)
 
-    def enter_at(self):
+    def enter_at(self, timeout: float = 2.0):
         self.calls.append("+++:enter")
-        return FakeAtResult(command="+++", response="Entry AT", expected="Entry AT", passed=True)
+        response = str(self.responses.get("+++", "Entry AT"))
+        return FakeAtResult(command="+++", response=response, expected="Entry AT", passed="Entry AT" in response)
 
     def exit_at(self):
         self.calls.append("+++:exit")
@@ -55,7 +60,7 @@ class FakeAtResult:
 
 
 class FakeDevice:
-    def __init__(self, name: str = "A", responses: dict[str, str] | None = None) -> None:
+    def __init__(self, name: str = "A", responses: dict[str, str | list[str]] | None = None) -> None:
         self.name = name
         self.at = FakeAtClient(responses or {})
         self.opened = False
@@ -72,15 +77,18 @@ def cases_by_id() -> dict[str, dict]:
     return {case["id"]: case for case in load_formal_cases(FORMAL_CASE_DIR)}
 
 
-def test_select_at_suite_skips_manual_confirm_cases_by_default() -> None:
+def test_select_at_suite_skips_manual_confirm_and_state_changing_cases_by_default() -> None:
     cases = load_formal_cases(FORMAL_CASE_DIR)
 
     selected = select_cases(cases, suite="at")
 
     assert [case["id"] for case in selected] == [
-        *(f"AT-{index:03d}" for index in range(1, 13)),
+        "AT-001",
+        *(f"AT-{index:03d}" for index in range(4, 13)),
         *(f"AT-{index:03d}" for index in range(14, 19)),
     ]
+    assert "AT-002" not in {case["id"] for case in selected}
+    assert "AT-003" not in {case["id"] for case in selected}
     assert "AT-013" not in {case["id"] for case in selected}
     assert "AT-019" not in {case["id"] for case in selected}
     assert "AT-020" not in {case["id"] for case in selected}
@@ -127,7 +135,7 @@ def test_run_at_001_with_mock_device_writes_reports(tmp_path: Path) -> None:
     json_path, markdown_path = write_reports(tmp_path, [to_report_case(result) for result in results])
 
     assert results[0].status == "PASS"
-    assert device.at.calls == ["AT"]
+    assert device.at.calls == ["AT", "AT"]
     assert Path(json_path).exists()
     assert Path(markdown_path).exists()
     payload = json.loads(Path(json_path).read_text(encoding="utf-8"))
@@ -136,15 +144,39 @@ def test_run_at_001_with_mock_device_writes_reports(tmp_path: Path) -> None:
     assert (tmp_path / "logs" / "AT-001_runner.log").exists()
 
 
-def test_run_regex_at_case_with_mock_device() -> None:
-    case = cases_by_id()["AT-004"]
-    device = FakeDevice(responses={"AT+BAUD": "+BAUD=3"})
+def test_ensure_at_mode_enters_when_initial_probe_fails() -> None:
+    case = cases_by_id()["AT-001"]
+    device = FakeDevice(responses={"AT": ["", "OK", "OK"], "+++": "Entry AT"})
     runner = FormalAtRunner({"A": device})
 
     result = runner.run_case(case)
 
     assert result.status == "PASS"
-    assert device.at.calls == ["AT+BAUD"]
+    assert device.at.calls == ["AT", "+++:enter", "AT", "AT"]
+    assert any("enter_at" in step for step in result.steps)
+
+
+def test_ensure_at_mode_fails_if_entry_verification_fails() -> None:
+    case = cases_by_id()["AT-001"]
+    device = FakeDevice(responses={"AT": ["", ""], "+++": "Entry AT"})
+    runner = FormalAtRunner({"A": device})
+
+    result = runner.run_case(case)
+
+    assert result.status == "FAIL"
+    assert "AT mode verification failed" in (result.failure_reason or "")
+    assert device.at.calls == ["AT", "+++:enter", "AT"]
+
+
+def test_run_regex_at_case_with_mock_device() -> None:
+    case = cases_by_id()["AT-004"]
+    device = FakeDevice(responses={"AT": "OK", "AT+BAUD": "+BAUD=3"})
+    runner = FormalAtRunner({"A": device})
+
+    result = runner.run_case(case)
+
+    assert result.status == "PASS"
+    assert device.at.calls == ["AT", "AT+BAUD"]
 
 
 def test_manual_confirm_case_is_blocked_if_runner_receives_it() -> None:
