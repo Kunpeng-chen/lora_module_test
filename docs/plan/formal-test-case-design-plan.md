@@ -118,7 +118,7 @@ lora_auto/config/formal/
 
 ---
 
-## Phase 1：正式测试用例模型与计划基线 [ ]
+## Phase 1：正式测试用例模型与计划基线 [√]
 
 目标：
 
@@ -827,14 +827,14 @@ README 影响：
 当前建议优先推进：
 
 ```text
-Phase 1：正式测试用例模型与计划基线 [ ]
+Phase 2：AT 正常指令精确返回建模 [ ]
 ```
 
 原因：
 
-1. Phase 1 是所有后续正式测试自动化的依赖。
-2. 只做 schema、loader 和样例用例，风险最低。
-3. 不涉及真实硬件执行，不影响现有 MVP runner。
-4. 能尽早固定正式用例文件结构，避免后续重复迁移。
+1. Phase 1 已合并到 main，正式用例目录、样例 YAML、loader/schema 校验测试和 README 说明已完成。
+2. Phase 2 是后续正式 AT runner 的数据基础。
+3. 先补齐 `AT-001` ~ `AT-020` 的精确 expected 和 manual_ref，可降低 Phase 3 执行器实现风险。
+4. `AT+DEFAULT` 等破坏性/状态变更指令需要在数据层先明确 `destructive`、`state_changing` 和 `manual_confirm` 策略。
 
-Phase 1 完成并合并后，再推进 Phase 2：AT 正常指令精确返回建模。
+Phase 2 完成并合并后，再推进 Phase 3：AT 正常指令执行器。
