@@ -1,0 +1,48 @@
+cases:
+  - id: AT-001
+    suite: at
+    feature: at_command
+    scenario: Basic AT command responds with OK
+    priority: P0
+    automation_level: auto
+    devices: [A]
+    preconditions:
+      - Device A is connected over serial and can enter AT mode.
+    steps:
+      - action: enter_at
+        device: A
+        command: "+++"
+        expected:
+          mode: contains
+          value: Entry AT
+      - action: send_at
+        device: A
+        command: AT
+        expected:
+          mode: contains
+          value: OK
+      - action: exit_at
+        device: A
+        command: "+++"
+        expected:
+          mode: contains
+          value: Exit AT
+    expected:
+      - AT command response contains OK.
+    result_policy:
+      pass_when:
+        - The AT response contains OK.
+      fail_when:
+        - The AT response does not contain OK.
+    evidence:
+      serial_log: null
+      logic_analyzer: null
+      power_record: null
+      rf_record: null
+      manual_note: null
+    metadata:
+      source: formal-test-case-design-plan Phase 1 sample
+      manual_ref: docs/manual/dx-lr31-900t22s-uart-application-guide.md
+      destructive: false
+      state_changing: false
+      run_policy: auto
