@@ -94,6 +94,16 @@ def test_select_at_suite_skips_manual_confirm_and_state_changing_cases_by_defaul
     assert "AT-020" not in {case["id"] for case in selected}
 
 
+def test_select_error_at_suite_includes_all_negative_cases_by_default() -> None:
+    cases = load_formal_cases(FORMAL_CASE_DIR)
+
+    selected = select_cases(cases, suite="error_at")
+
+    assert len(selected) == 57
+    assert selected[0]["id"] == "ERRAT-001"
+    assert selected[-1]["id"] == "ERRAT-057"
+
+
 def test_select_manual_case_by_id_requires_explicit_include_manual() -> None:
     cases = load_formal_cases(FORMAL_CASE_DIR)
 
@@ -177,6 +187,40 @@ def test_run_regex_at_case_with_mock_device() -> None:
 
     assert result.status == "PASS"
     assert device.at.calls == ["AT", "AT+BAUD"]
+
+
+def test_run_error_at_104_case_with_post_check() -> None:
+    case = cases_by_id()["ERRAT-001"]
+    device = FakeDevice(responses={"AT": "OK", "AT+": "ERROR=104"})
+    runner = FormalAtRunner({"A": device})
+
+    result = runner.run_case(case)
+
+    assert result.status == "PASS"
+    assert device.at.calls == ["AT", "AT+", "AT"]
+
+
+def test_run_error_at_105_case_with_post_check() -> None:
+    case = cases_by_id()["ERRAT-014"]
+    device = FakeDevice(responses={"AT": "OK", "AT+BAUD9": "ERROR=105"})
+    runner = FormalAtRunner({"A": device})
+
+    result = runner.run_case(case)
+
+    assert result.status == "PASS"
+    assert device.at.calls == ["AT", "AT+BAUD9", "AT"]
+
+
+def test_error_at_case_fails_when_health_check_fails() -> None:
+    case = cases_by_id()["ERRAT-001"]
+    device = FakeDevice(responses={"AT": ["OK", ""], "AT+": "ERROR=104"})
+    runner = FormalAtRunner({"A": device})
+
+    result = runner.run_case(case)
+
+    assert result.status == "FAIL"
+    assert "post_check" not in (result.failure_reason or "") or "OK" in (result.failure_reason or "")
+    assert device.at.calls == ["AT", "AT+", "AT"]
 
 
 def test_manual_confirm_case_is_blocked_if_runner_receives_it() -> None:
