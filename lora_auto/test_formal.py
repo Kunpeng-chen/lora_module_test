@@ -23,6 +23,7 @@ from lora_auto.libs.lora_device import LoraDevice
 from lora_auto.libs.report import ReportCase, ReportStep, utc_now_iso, write_device_log, write_reports
 
 LOGGER = logging.getLogger(__name__)
+SUPPORTED_SUITES = frozenset({"at", "error_at"})
 
 
 @dataclass(frozen=True)
@@ -92,9 +93,23 @@ def load_formal_cases(cases_dir: str | Path) -> list[dict[str, Any]]:
 
 
 def is_query_only_case(case: dict[str, Any]) -> bool:
-    """Return whether all case steps are non-mutating AT query/send steps."""
+    """Return whether a normal AT case contains only non-mutating AT query/send steps."""
 
-    return all(step.get("action") == "send_at" for step in case.get("steps", []))
+    return case.get("suite") == "at" and all(
+        step.get("action") == "send_at" for step in case.get("steps", [])
+    )
+
+
+def is_error_at_case(case: dict[str, Any]) -> bool:
+    """Return whether a case is an executable negative AT flow with a health check."""
+
+    steps = case.get("steps", [])
+    return (
+        case.get("suite") == "error_at"
+        and len(steps) >= 2
+        and steps[-1].get("action") == "post_check"
+        and all(step.get("action") in {"send_at", "post_check"} for step in steps)
+    )
 
 
 def is_auto_runnable(case: dict[str, Any]) -> bool:
@@ -106,7 +121,7 @@ def is_auto_runnable(case: dict[str, Any]) -> bool:
         and metadata.get("run_policy") == "auto"
         and metadata.get("destructive") is not True
         and metadata.get("state_changing") is not True
-        and is_query_only_case(case)
+        and (is_query_only_case(case) or is_error_at_case(case))
     )
 
 
@@ -138,7 +153,7 @@ def select_cases(
     auto_cases = [case for case in selected if is_auto_runnable(case)]
     if case_id is not None and not auto_cases:
         raise FormalRunnerError(
-            f"case {case_id!r} requires manual confirmation or changes AT mode and is not selected by default"
+            f"case {case_id!r} requires manual confirmation or is not selected by default"
         )
     return auto_cases
 
@@ -160,7 +175,7 @@ def describe_case_selection(cases: list[dict[str, Any]]) -> list[str]:
 
 
 class FormalAtRunner:
-    """Executes formal AT normal-command cases."""
+    """Executes formal AT normal and negative-command cases."""
 
     def __init__(self, devices: dict[str, LoraDevice], report_dir: str | Path = "reports") -> None:
         self.devices = devices
@@ -175,7 +190,7 @@ class FormalAtRunner:
             device.close()
 
     def run_case(self, case: dict[str, Any]) -> FormalCaseResult:
-        if case.get("suite") != "at":
+        if case.get("suite") not in SUPPORTED_SUITES:
             return self._build_result(
                 case=case,
                 status="BLOCKED",
@@ -183,7 +198,10 @@ class FormalAtRunner:
                 end_time=utc_now_iso(),
                 duration=0.0,
                 steps=[],
-                failure_reason=f"formal runner currently supports only the 'at' suite, got {case.get('suite')!r}",
+                failure_reason=(
+                    f"formal runner currently supports only {sorted(SUPPORTED_SUITES)}, "
+                    f"got {case.get('suite')!r}"
+                ),
             )
         if not is_auto_runnable(case):
             return self._build_result(
@@ -193,7 +211,7 @@ class FormalAtRunner:
                 end_time=utc_now_iso(),
                 duration=0.0,
                 steps=[],
-                failure_reason="case requires manual confirmation or changes AT mode and is not run automatically",
+                failure_reason="case requires manual confirmation or is not run automatically",
             )
 
         start_time = utc_now_iso()
@@ -273,7 +291,7 @@ class FormalAtRunner:
             result = device.at.exit_at()
         elif action == "reset":
             result = device.at.reset(expected=read_until)
-        elif action == "send_at":
+        elif action in {"send_at", "post_check"}:
             result = device.at.send_cmd(command, expected=read_until)
         else:
             raise FormalRunnerError(f"case {case['id']} has unsupported AT action {action!r}")
@@ -404,7 +422,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run LoRa formal cases.")
     parser.add_argument("--config", default="lora_auto/config/devices.yaml", help="Device config YAML path.")
     parser.add_argument("--cases-dir", default="lora_auto/config/formal", help="Formal case directory.")
-    parser.add_argument("--suite", default="at", help="Run a formal suite. Phase 3 supports 'at'.")
+    parser.add_argument("--suite", default="at", help="Run a formal suite. Supports 'at' and 'error_at'.")
     parser.add_argument("--case", dest="case_id", default=None, help="Run only one case ID.")
     parser.add_argument("--include-manual", action="store_true", help="Include manual-confirm cases in selection.")
     parser.add_argument("--dry-run", action="store_true", help="Print the selected execution plan without opening hardware.")

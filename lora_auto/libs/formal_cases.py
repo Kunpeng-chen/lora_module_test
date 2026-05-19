@@ -55,11 +55,106 @@ def load_formal_cases(path: str | Path) -> list[dict[str, Any]]:
     if not isinstance(data, dict):
         raise FormalCaseError(f"formal case file {file_path} must contain a mapping")
 
-    cases = data.get("cases")
+    cases = extract_formal_cases(data, source=str(file_path))
     if not isinstance(cases, list) or not cases:
-        raise FormalCaseError(f"formal case file {file_path} must contain a non-empty 'cases' list")
+        raise FormalCaseError(
+            f"formal case file {file_path} must contain a non-empty 'cases' list or 'error_at_cases' list"
+        )
 
     validate_formal_cases(cases, source=str(file_path))
+    return cases
+
+
+def extract_formal_cases(data: dict[str, Any], source: str = "formal cases") -> list[dict[str, Any]]:
+    """Extract regular cases or expand a compact formal error-AT matrix."""
+
+    error_at_cases = data.get("error_at_cases")
+    if error_at_cases is not None:
+        if data.get("cases") not in (None, []):
+            raise FormalCaseError(f"{source} must not mix 'cases' and 'error_at_cases'")
+        return expand_error_at_cases(error_at_cases, source=source)
+
+    return data.get("cases")
+
+
+def expand_error_at_cases(items: Any, source: str = "formal error AT cases") -> list[dict[str, Any]]:
+    """Expand compact ERRAT matrix rows into full formal case mappings."""
+
+    if not isinstance(items, list) or not items:
+        raise FormalCaseError(f"{source} error_at_cases must be a non-empty list")
+
+    cases: list[dict[str, Any]] = []
+    for index, item in enumerate(items):
+        if not isinstance(item, dict):
+            raise FormalCaseError(f"error_at_cases row #{index + 1} in {source} must be a mapping")
+
+        case_id = _required_matrix_string(item, "id", index, source)
+        feature = _required_matrix_string(item, "feature", index, source)
+        command = _required_matrix_string(item, "command", index, source)
+        expected_error = _required_matrix_string(item, "expected_error", index, source)
+        scenario = _required_matrix_string(item, "scenario", index, source)
+
+        if expected_error not in {"ERROR=104", "ERROR=105"}:
+            raise FormalCaseError(
+                f"error_at_cases row {case_id!r} in {source} has unsupported expected_error {expected_error!r}"
+            )
+
+        cases.append(
+            {
+                "id": case_id,
+                "suite": "error_at",
+                "feature": feature,
+                "scenario": f"{scenario} returns {expected_error}",
+                "priority": "P1",
+                "automation_level": "auto",
+                "devices": ["A"],
+                "preconditions": [
+                    "Device A is connected; runner will ensure AT mode before execution."
+                ],
+                "steps": [
+                    {
+                        "action": "send_at",
+                        "device": "A",
+                        "command": command,
+                        "expected": {"mode": "contains", "value": expected_error},
+                    },
+                    {
+                        "action": "post_check",
+                        "device": "A",
+                        "command": "AT",
+                        "expected": {"mode": "contains", "value": "OK"},
+                    },
+                ],
+                "expected": [
+                    f"Invalid command returns {expected_error} and the module remains responsive."
+                ],
+                "result_policy": {
+                    "pass_when": [
+                        f"The invalid command returns {expected_error}.",
+                        "The post-check AT command returns OK.",
+                    ],
+                    "fail_when": [
+                        f"The invalid command does not return {expected_error}.",
+                        "The post-check AT command does not return OK.",
+                    ],
+                },
+                "evidence": {
+                    "serial_log": None,
+                    "logic_analyzer": None,
+                    "power_record": None,
+                    "rf_record": None,
+                    "manual_note": None,
+                },
+                "metadata": {
+                    "source": "formal-test-case-design-plan Phase 4",
+                    "manual_ref": "docs/manual/dx-lr31-900t22s-uart-application-guide.md#error-code-policy",
+                    "destructive": False,
+                    "state_changing": False,
+                    "run_policy": "auto",
+                },
+            }
+        )
+
     return cases
 
 
@@ -138,6 +233,15 @@ def validate_unique_case_ids(cases: list[dict[str, Any]]) -> None:
         if case_id in seen:
             raise FormalCaseError(f"duplicate formal case id: {case_id}")
         seen.add(case_id)
+
+
+def _required_matrix_string(item: dict[str, Any], field: str, index: int, source: str) -> str:
+    value = item.get(field)
+    if not isinstance(value, str) or not value:
+        raise FormalCaseError(
+            f"error_at_cases row #{index + 1} in {source} field {field!r} must be a non-empty string"
+        )
+    return value
 
 
 def _validate_metadata(case_id: str, metadata: dict[str, Any]) -> None:
