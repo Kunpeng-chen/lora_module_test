@@ -1,0 +1,46 @@
+cases:
+  - id: MAIN-001
+    suite: main
+    feature: transparent_transfer
+    scenario: High-speed transparent transfer baseline sample
+    priority: P0
+    automation_level: auto
+    devices: [A, B]
+    preconditions:
+      - Devices A and B are connected and configured for high-speed transparent mode.
+    steps:
+      - action: configure_transparent_mode
+        device: A
+        command: null
+        expected:
+          mode: contains_all
+          values: [OK]
+      - action: send_payload
+        device: A
+        command: "12345678"
+        expected: null
+      - action: receive_payload
+        device: B
+        command: null
+        expected:
+          mode: contains
+          value: "12345678"
+    expected:
+      - Device B receives the same payload sent by device A.
+    result_policy:
+      pass_when:
+        - Receiver payload contains the expected text within timeout.
+      fail_when:
+        - Receiver payload is missing or differs from the expected text.
+    evidence:
+      serial_log: null
+      logic_analyzer: null
+      power_record: null
+      rf_record: null
+      manual_note: null
+    metadata:
+      source: formal-test-case-design-plan Phase 1 sample
+      manual_ref: null
+      destructive: false
+      state_changing: true
+      run_policy: auto
