@@ -300,7 +300,7 @@ def expected_read_until(expected: dict[str, Any]) -> str:
         return str(values[0])
     if mode == "regex":
         value = str(expected.get("value", ""))
-        prefix_match = re.match(r"\\\\\+([A-Z]+)=", value)
+        prefix_match = re.match(r"\\\+([A-Z]+)=", value)
         if prefix_match:
             return f"+{prefix_match.group(1)}="
         return "OK"
