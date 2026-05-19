@@ -77,7 +77,11 @@ def test_select_at_suite_skips_manual_confirm_cases_by_default() -> None:
 
     selected = select_cases(cases, suite="at")
 
-    assert [case["id"] for case in selected] == [f"AT-{index:03d}" for index in range(1, 19)]
+    assert [case["id"] for case in selected] == [
+        *(f"AT-{index:03d}" for index in range(1, 13)),
+        *(f"AT-{index:03d}" for index in range(14, 19)),
+    ]
+    assert "AT-013" not in {case["id"] for case in selected}
     assert "AT-019" not in {case["id"] for case in selected}
     assert "AT-020" not in {case["id"] for case in selected}
 
@@ -102,7 +106,7 @@ def test_dry_run_describes_run_and_skip_without_opening_devices() -> None:
 
 
 def test_expected_read_until_for_regex_uses_response_prefix() -> None:
-    assert expected_read_until({"mode": "regex", "value": r"\\+BAUD=\\d+"}) == "+BAUD="
+    assert expected_read_until({"mode": "regex", "value": r"\+BAUD=\d+"}) == "+BAUD="
     assert expected_read_until({"mode": "contains", "value": "OK"}) == "OK"
     assert expected_read_until({"mode": "contains_all", "values": ["+KEY=12345", "OK"]}) == "+KEY=12345"
 
@@ -110,7 +114,7 @@ def test_expected_read_until_for_regex_uses_response_prefix() -> None:
 def test_match_expected_modes() -> None:
     assert match_expected("OK", {"mode": "contains", "value": "OK"})[0]
     assert match_expected("+KEY=12345\nOK", {"mode": "contains_all", "values": ["+KEY=12345", "OK"]})[0]
-    assert match_expected("+BAUD=3", {"mode": "regex", "value": r"\\+BAUD=\\d+"})[0]
+    assert match_expected("+BAUD=3", {"mode": "regex", "value": r"\+BAUD=\d+"})[0]
     assert match_expected("OK\n", {"mode": "exact", "value": "OK"})[0]
 
 
