@@ -6,43 +6,464 @@ cases:
     priority: P0
     automation_level: auto
     devices: [A]
-    preconditions:
-      - Device A is connected over serial and can enter AT mode.
+    preconditions: [Device A is connected over serial and is in AT mode.]
     steps:
-      - action: enter_at
-        device: A
-        command: "+++"
-        expected:
-          mode: contains
-          value: Entry AT
       - action: send_at
         device: A
         command: AT
-        expected:
-          mode: contains
-          value: OK
-      - action: exit_at
-        device: A
-        command: "+++"
-        expected:
-          mode: contains
-          value: Exit AT
-    expected:
-      - AT command response contains OK.
+        expected: {mode: contains, value: OK}
+    expected: [AT command response contains OK.]
     result_policy:
-      pass_when:
-        - The AT response contains OK.
-      fail_when:
-        - The AT response does not contain OK.
-    evidence:
+      pass_when: [The documented expected response is observed.]
+      fail_when: [The documented expected response is missing.]
+    evidence: &empty_evidence
       serial_log: null
       logic_analyzer: null
       power_record: null
       rf_record: null
       manual_note: null
     metadata:
-      source: formal-test-case-design-plan Phase 1 sample
-      manual_ref: docs/manual/dx-lr31-900t22s-uart-application-guide.md
+      source: docs/manual/dx-lr31-900t22s-uart-application-guide.md
+      manual_ref: 5.1.2 测试指令
       destructive: false
       state_changing: false
       run_policy: auto
+
+  - id: AT-002
+    suite: at
+    feature: at_command
+    scenario: Enter AT command mode with +++
+    priority: P0
+    automation_level: auto
+    devices: [A]
+    preconditions: [Device A is connected over serial and starts in transfer mode.]
+    steps:
+      - action: enter_at
+        device: A
+        command: "+++"
+        expected: {mode: contains, value: Entry AT}
+    expected: [The module enters AT command mode and returns Entry AT.]
+    result_policy: &standard_policy
+      pass_when: [The documented expected response is observed.]
+      fail_when: [The documented expected response is missing.]
+    evidence: *empty_evidence
+    metadata:
+      source: docs/manual/dx-lr31-900t22s-uart-application-guide.md
+      manual_ref: 5.1.1 进入或退出 AT 命令模式
+      destructive: false
+      state_changing: false
+      run_policy: auto
+
+  - id: AT-003
+    suite: at
+    feature: at_command
+    scenario: Exit AT command mode with +++
+    priority: P0
+    automation_level: auto
+    devices: [A]
+    preconditions: [Device A is connected over serial and is already in AT mode.]
+    steps:
+      - action: exit_at
+        device: A
+        command: "+++"
+        expected: {mode: contains, value: Exit AT}
+    expected: [The module exits AT command mode and returns Exit AT. A Power On banner may follow.]
+    result_policy: *standard_policy
+    evidence: *empty_evidence
+    metadata:
+      source: docs/manual/dx-lr31-900t22s-uart-application-guide.md
+      manual_ref: 5.1.1 进入或退出 AT 命令模式
+      destructive: false
+      state_changing: true
+      run_policy: auto
+
+  - id: AT-004
+    suite: at
+    feature: at_command
+    scenario: Query serial baud rate
+    priority: P0
+    automation_level: auto
+    devices: [A]
+    preconditions: [Device A is connected over serial and is in AT mode.]
+    steps:
+      - action: send_at
+        device: A
+        command: AT+BAUD
+        expected: {mode: regex, value: "\\+BAUD=\\d+"}
+    expected: [AT+BAUD response matches +BAUD=<baud>.]
+    result_policy: *standard_policy
+    evidence: *empty_evidence
+    metadata:
+      source: docs/manual/dx-lr31-900t22s-uart-application-guide.md
+      manual_ref: 5.2.1 设置/查询—串口波特率
+      destructive: false
+      state_changing: false
+      run_policy: auto
+
+  - id: AT-005
+    suite: at
+    feature: at_command
+    scenario: Query serial parity
+    priority: P0
+    automation_level: auto
+    devices: [A]
+    preconditions: [Device A is connected over serial and is in AT mode.]
+    steps:
+      - action: send_at
+        device: A
+        command: AT+PARI
+        expected: {mode: regex, value: "\\+PARI=[0-2]"}
+    expected: [AT+PARI response matches +PARI=<param>.]
+    result_policy: *standard_policy
+    evidence: *empty_evidence
+    metadata:
+      source: docs/manual/dx-lr31-900t22s-uart-application-guide.md
+      manual_ref: 5.2.2 设置/查询—串口校验位
+      destructive: false
+      state_changing: false
+      run_policy: auto
+
+  - id: AT-006
+    suite: at
+    feature: at_command
+    scenario: Query transfer mode
+    priority: P0
+    automation_level: auto
+    devices: [A]
+    preconditions: [Device A is connected over serial and is in AT mode.]
+    steps:
+      - action: send_at
+        device: A
+        command: AT+MODE
+        expected: {mode: regex, value: "\\+MODE=[0-2]"}
+    expected: [AT+MODE response matches +MODE=<param>.]
+    result_policy: *standard_policy
+    evidence: *empty_evidence
+    metadata:
+      source: docs/manual/dx-lr31-900t22s-uart-application-guide.md
+      manual_ref: 5.3.3 设置/查询—传输模式
+      destructive: false
+      state_changing: false
+      run_policy: auto
+
+  - id: AT-007
+    suite: at
+    feature: at_command
+    scenario: Query working mode
+    priority: P0
+    automation_level: auto
+    devices: [A]
+    preconditions: [Device A is connected over serial and is in AT mode.]
+    steps:
+      - action: send_at
+        device: A
+        command: AT+SLEEP
+        expected: {mode: regex, value: "\\+SLEEP=[0-2]"}
+    expected: [AT+SLEEP response matches +SLEEP=<param>.]
+    result_policy: *standard_policy
+    evidence: *empty_evidence
+    metadata:
+      source: docs/manual/dx-lr31-900t22s-uart-application-guide.md
+      manual_ref: 5.3.4 设置/查询—工作模式
+      destructive: false
+      state_changing: false
+      run_policy: auto
+
+  - id: AT-008
+    suite: at
+    feature: at_command
+    scenario: Query air rate level
+    priority: P0
+    automation_level: auto
+    devices: [A]
+    preconditions: [Device A is connected over serial and is in AT mode.]
+    steps:
+      - action: send_at
+        device: A
+        command: AT+LEVEL
+        expected: {mode: regex, value: "\\+LEVEL=[0-7]"}
+    expected: [AT+LEVEL response matches +LEVEL=<param>.]
+    result_policy: *standard_policy
+    evidence: *empty_evidence
+    metadata:
+      source: docs/manual/dx-lr31-900t22s-uart-application-guide.md
+      manual_ref: 5.3.2 设置/查询—一键配置模块空中速率和通讯距离
+      destructive: false
+      state_changing: false
+      run_policy: auto
+
+  - id: AT-009
+    suite: at
+    feature: at_command
+    scenario: Query working channel
+    priority: P0
+    automation_level: auto
+    devices: [A]
+    preconditions: [Device A is connected over serial and is in AT mode.]
+    steps:
+      - action: send_at
+        device: A
+        command: AT+CHANNEL
+        expected: {mode: regex, value: "\\+CHANNEL=[0-9A-Fa-f]{2}"}
+    expected: [AT+CHANNEL response matches +CHANNEL=<param>.]
+    result_policy: *standard_policy
+    evidence: *empty_evidence
+    metadata:
+      source: docs/manual/dx-lr31-900t22s-uart-application-guide.md
+      manual_ref: 5.3.6 设置/查询—工作信道
+      destructive: false
+      state_changing: false
+      run_policy: auto
+
+  - id: AT-010
+    suite: at
+    feature: at_command
+    scenario: Query device address
+    priority: P0
+    automation_level: auto
+    devices: [A]
+    preconditions: [Device A is connected over serial and is in AT mode.]
+    steps:
+      - action: send_at
+        device: A
+        command: AT+MAC
+        expected: {mode: regex, value: "\\+MAC=[0-9A-Fa-f]{2},[0-9A-Fa-f]{2}"}
+    expected: [AT+MAC response matches +MAC=<param>,<param>.]
+    result_policy: *standard_policy
+    evidence: *empty_evidence
+    metadata:
+      source: docs/manual/dx-lr31-900t22s-uart-application-guide.md
+      manual_ref: 5.3.7 设置/查询—设备地址
+      destructive: false
+      state_changing: false
+      run_policy: auto
+
+  - id: AT-011
+    suite: at
+    feature: at_command
+    scenario: Query transmit power
+    priority: P0
+    automation_level: auto
+    devices: [A]
+    preconditions: [Device A is connected over serial and is in AT mode.]
+    steps:
+      - action: send_at
+        device: A
+        command: AT+POWE
+        expected: {mode: regex, value: "\\+POWE=\\d+"}
+    expected: [AT+POWE response matches +POWE=<param>.]
+    result_policy: *standard_policy
+    evidence: *empty_evidence
+    metadata:
+      source: docs/manual/dx-lr31-900t22s-uart-application-guide.md
+      manual_ref: 5.3.12 设置/查询—发射功率
+      destructive: false
+      state_changing: false
+      run_policy: auto
+
+  - id: AT-012
+    suite: at
+    feature: at_command
+    scenario: Query packet length
+    priority: P0
+    automation_level: auto
+    devices: [A]
+    preconditions: [Device A is connected over serial and is in AT mode.]
+    steps:
+      - action: send_at
+        device: A
+        command: AT+PACKET
+        expected: {mode: regex, value: "\\+PACKET=[0-3]"}
+    expected: [AT+PACKET response matches +PACKET=<param>.]
+    result_policy: *standard_policy
+    evidence: *empty_evidence
+    metadata:
+      source: docs/manual/dx-lr31-900t22s-uart-application-guide.md
+      manual_ref: 5.3.10 设置/查询—分包长度
+      destructive: false
+      state_changing: false
+      run_policy: auto
+
+  - id: AT-013
+    suite: at
+    feature: at_command
+    scenario: Set module key to default sample value
+    priority: P1
+    automation_level: semi_auto
+    devices: [A]
+    preconditions: [Device A is connected over serial and is in AT mode.]
+    steps:
+      - action: send_at
+        device: A
+        command: AT+KEY12345
+        expected: {mode: contains_all, values: ["+KEY=12345", OK]}
+    expected: [The module returns +KEY=12345 followed by OK.]
+    result_policy: *standard_policy
+    evidence: *empty_evidence
+    metadata:
+      source: docs/manual/dx-lr31-900t22s-uart-application-guide.md
+      manual_ref: 5.3.9 设置—模块密钥
+      destructive: false
+      state_changing: true
+      run_policy: manual_confirm
+
+  - id: AT-014
+    suite: at
+    feature: at_command
+    scenario: Query hardware switch status
+    priority: P0
+    automation_level: auto
+    devices: [A]
+    preconditions: [Device A is connected over serial and is in AT mode.]
+    steps:
+      - action: send_at
+        device: A
+        command: AT+SWITCH
+        expected: {mode: regex, value: "\\+SWITCH=[0-1]"}
+    expected: [AT+SWITCH response matches +SWITCH=<param>.]
+    result_policy: *standard_policy
+    evidence: *empty_evidence
+    metadata:
+      source: docs/manual/dx-lr31-900t22s-uart-application-guide.md
+      manual_ref: 5.3.5 设置/查询—硬件控制引脚状态
+      destructive: false
+      state_changing: false
+      run_policy: auto
+
+  - id: AT-015
+    suite: at
+    feature: at_command
+    scenario: Query LBT status
+    priority: P0
+    automation_level: auto
+    devices: [A]
+    preconditions: [Device A is connected over serial and is in AT mode.]
+    steps:
+      - action: send_at
+        device: A
+        command: AT+LBT
+        expected: {mode: regex, value: "\\+LBT=[0-1]"}
+    expected: [AT+LBT response matches +LBT=<param>.]
+    result_policy: *standard_policy
+    evidence: *empty_evidence
+    metadata:
+      source: docs/manual/dx-lr31-900t22s-uart-application-guide.md
+      manual_ref: 5.3.13 设置/查询—LBT 状态
+      destructive: false
+      state_changing: false
+      run_policy: auto
+
+  - id: AT-016
+    suite: at
+    feature: at_command
+    scenario: Query LBT RSSI threshold
+    priority: P0
+    automation_level: auto
+    devices: [A]
+    preconditions: [Device A is connected over serial and is in AT mode.]
+    steps:
+      - action: send_at
+        device: A
+        command: AT+LRSSI
+        expected: {mode: regex, value: "\\+LRSSI=-?\\d+"}
+    expected: [AT+LRSSI response matches +LRSSI=<param>.]
+    result_policy: *standard_policy
+    evidence: *empty_evidence
+    metadata:
+      source: docs/manual/dx-lr31-900t22s-uart-application-guide.md
+      manual_ref: 5.3.14 设置/查询—LBT 监听阈值
+      destructive: false
+      state_changing: false
+      run_policy: auto
+
+  - id: AT-017
+    suite: at
+    feature: at_command
+    scenario: Query data packet RSSI setting
+    priority: P0
+    automation_level: auto
+    devices: [A]
+    preconditions: [Device A is connected over serial and is in AT mode.]
+    steps:
+      - action: send_at
+        device: A
+        command: AT+DRSSI
+        expected: {mode: regex, value: "\\+DRSSI=[0-1]"}
+    expected: [AT+DRSSI response matches +DRSSI=<param>.]
+    result_policy: *standard_policy
+    evidence: *empty_evidence
+    metadata:
+      source: docs/manual/dx-lr31-900t22s-uart-application-guide.md
+      manual_ref: 5.3.11 设置/查询—数据包 RSSI
+      destructive: false
+      state_changing: false
+      run_policy: auto
+
+  - id: AT-018
+    suite: at
+    feature: at_command
+    scenario: Query current channel noise level
+    priority: P0
+    automation_level: auto
+    devices: [A]
+    preconditions: [Device A is connected over serial and is in AT mode.]
+    steps:
+      - action: send_at
+        device: A
+        command: AT+ERSSI
+        expected: {mode: regex, value: "\\+ERSSI=-?\\d+"}
+    expected: [AT+ERSSI response matches +ERSSI=<param>.]
+    result_policy: *standard_policy
+    evidence: *empty_evidence
+    metadata:
+      source: docs/manual/dx-lr31-900t22s-uart-application-guide.md
+      manual_ref: 5.3.15 查询—当前信道噪声水平
+      destructive: false
+      state_changing: false
+      run_policy: auto
+
+  - id: AT-019
+    suite: at
+    feature: at_command
+    scenario: Software reset
+    priority: P1
+    automation_level: semi_auto
+    devices: [A]
+    preconditions: [Device A is connected over serial and is in AT mode.]
+    steps:
+      - action: reset
+        device: A
+        command: AT+RESET
+        expected: {mode: contains, value: OK}
+    expected: [The module returns OK. A Power On banner may follow after reset.]
+    result_policy: *standard_policy
+    evidence: *empty_evidence
+    metadata:
+      source: docs/manual/dx-lr31-900t22s-uart-application-guide.md
+      manual_ref: 5.1.3 软件重启
+      destructive: false
+      state_changing: true
+      run_policy: manual_confirm
+
+  - id: AT-020
+    suite: at
+    feature: at_command
+    scenario: Restore factory defaults
+    priority: P1
+    automation_level: semi_auto
+    devices: [A]
+    preconditions: [Device A is connected over serial and is in AT mode.]
+    steps:
+      - action: send_at
+        device: A
+        command: AT+DEFAULT
+        expected: {mode: contains, value: OK}
+    expected: [The module returns OK. A Power On banner may follow after defaults are restored.]
+    result_policy: *standard_policy
+    evidence: *empty_evidence
+    metadata:
+      source: docs/manual/dx-lr31-900t22s-uart-application-guide.md
+      manual_ref: 5.1.4 恢复出厂设置
+      destructive: true
+      state_changing: true
+      run_policy: manual_confirm
