@@ -199,7 +199,24 @@ Phase 2 expands `at_cases.yaml` to `AT-001` through `AT-020`. These AT cases are
 
 State-changing AT cases are not selected for automatic execution by default. `AT+RESET` is marked `semi_auto` with `run_policy: manual_confirm`; `AT+DEFAULT` is additionally marked `destructive: true` and must remain manual-confirm only.
 
-This baseline is data/model preparation only. The formal runner, transfer execution, stress tests, and measurement evidence flow are planned as later phases.
+Phase 3 adds a formal AT runner entrypoint for the normal AT suite:
+
+```bash
+python lora_auto/test_formal.py --suite at
+python lora_auto/test_formal.py --case AT-001
+python lora_auto/test_formal.py --suite at --dry-run
+```
+
+By default, the runner only selects safe automatic cases: `automation_level: auto`, `run_policy: auto`, and non-destructive metadata. Manual-confirm cases such as `AT+RESET` and `AT+DEFAULT` are shown in dry-run output but are not executed automatically. Reports are written with the existing report layout:
+
+```text
+reports/
+  result.json
+  result.md
+  logs/<case_id>_runner.log
+```
+
+This baseline is data/model preparation plus the first AT execution path only. Transfer execution, abnormal AT, stress tests, and measurement evidence flow are planned as later phases.
 
 ## Run tests
 
