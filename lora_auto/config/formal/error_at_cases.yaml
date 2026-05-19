@@ -1,0 +1,42 @@
+cases:
+  - id: ERRAT-001
+    suite: error_at
+    feature: invalid_at_command
+    scenario: Invalid AT command returns parameter format error sample
+    priority: P1
+    automation_level: auto
+    devices: [A]
+    preconditions:
+      - Device A is connected and in AT mode.
+    steps:
+      - action: send_at
+        device: A
+        command: AT+UNKNOWN
+        expected:
+          mode: contains
+          value: ERROR=104
+      - action: post_check
+        device: A
+        command: AT
+        expected:
+          mode: contains
+          value: OK
+    expected:
+      - Invalid command returns ERROR=104 and the module remains responsive.
+    result_policy:
+      pass_when:
+        - The expected error code is returned and the post-check AT command returns OK.
+      fail_when:
+        - The expected error code is missing or the post-check fails.
+    evidence:
+      serial_log: null
+      logic_analyzer: null
+      power_record: null
+      rf_record: null
+      manual_note: null
+    metadata:
+      source: formal-test-case-design-plan Phase 1 sample
+      manual_ref: docs/manual/dx-lr31-900t22s-uart-application-guide.md
+      destructive: false
+      state_changing: false
+      run_policy: auto

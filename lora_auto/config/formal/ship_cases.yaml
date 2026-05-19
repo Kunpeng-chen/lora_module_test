@@ -1,0 +1,37 @@
+cases:
+  - id: SHIP-001
+    suite: ship
+    feature: shipping_regression
+    scenario: Shipping regression smoke sample
+    priority: P0
+    automation_level: semi_auto
+    devices: [A, B]
+    preconditions:
+      - Devices are loaded with the shipping firmware candidate.
+      - Operator has confirmed the hardware setup matches the shipping smoke test requirements.
+    steps:
+      - action: run_reference_smoke
+        device: null
+        command: null
+        expected:
+          mode: manual_confirm
+          value: smoke pass
+    expected:
+      - Shipping smoke flow is completed and recorded.
+    result_policy:
+      pass_when:
+        - Operator records the required smoke evidence.
+      fail_when:
+        - Required smoke evidence is missing.
+    evidence:
+      serial_log: null
+      logic_analyzer: null
+      power_record: null
+      rf_record: null
+      manual_note: null
+    metadata:
+      source: formal-test-case-design-plan Phase 1 sample
+      manual_ref: null
+      destructive: false
+      state_changing: true
+      run_policy: manual_confirm

@@ -178,6 +178,25 @@ python lora_auto/test_mvp.py --report-dir reports/local-run
 
 The JSON report contains a summary and full case entries. The Markdown report contains a summary table and case result table.
 
+## Formal test case model baseline
+
+The formal test case baseline introduces a structured YAML model for the later full formal test system. It does not execute serial ports or hardware yet.
+
+Formal case files are split by suite under:
+
+```text
+lora_auto/config/formal/
+  main_cases.yaml
+  at_cases.yaml
+  error_at_cases.yaml
+  ship_cases.yaml
+  iter_cases.yaml
+```
+
+Phase 1 intentionally includes only one sample from each suite: `MAIN-001`, `AT-001`, `ERRAT-001`, `SHIP-001`, and `ITER-001`. The loader in `lora_auto/libs/formal_cases.py` validates required fields, case ID uniqueness, priority values, automation levels, run policies, and destructive-case safety. Destructive cases can be represented, but they must not use `run_policy: auto`; use `manual_confirm` or `skip_by_default` instead.
+
+This baseline is data/model preparation only. The formal runner, full AT command set, transfer execution, stress tests, and measurement evidence flow are planned as later phases.
+
 ## Run tests
 
 ```bash
