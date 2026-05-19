@@ -207,7 +207,19 @@ python lora_auto/test_formal.py --case AT-001
 python lora_auto/test_formal.py --suite at --dry-run
 ```
 
-By default, the runner only selects safe automatic cases: `automation_level: auto`, `run_policy: auto`, and non-destructive metadata. Manual-confirm cases such as `AT+RESET` and `AT+DEFAULT` are shown in dry-run output but are not executed automatically. Reports are written with the existing report layout:
+By default, the runner only selects safe automatic cases: `automation_level: auto`, `run_policy: auto`, non-destructive metadata, and no state-changing steps. Before executing query-style AT cases, the runner probes `AT -> OK`; if needed it enters AT mode with `+++ -> Entry AT` and verifies with `AT -> OK`.
+
+Phase 4 adds the formal abnormal AT suite:
+
+```bash
+python lora_auto/test_formal.py --suite error_at
+python lora_auto/test_formal.py --case ERRAT-001
+python lora_auto/test_formal.py --suite error_at --dry-run
+```
+
+The `error_at` suite expands `ERRAT-001` through `ERRAT-057` from `lora_auto/config/formal/error_at_cases.yaml`. `ERRAT-001` through `ERRAT-013` expect `ERROR=104`; `ERRAT-014` through `ERRAT-057` expect `ERROR=105`. Receiving the configured error code is a PASS condition for the negative command step. Each negative command is followed by a post-check `AT -> OK`; missing the expected error code or failing the post-check makes the case FAIL. The runner uses the normalized `ERROR=<code>` spelling rather than the manual typo `EEROR`.
+
+Reports are written with the existing report layout:
 
 ```text
 reports/
@@ -216,7 +228,7 @@ reports/
   logs/<case_id>_runner.log
 ```
 
-This baseline is data/model preparation plus the first AT execution path only. Transfer execution, abnormal AT, stress tests, and measurement evidence flow are planned as later phases.
+This baseline is data/model preparation plus the first AT and abnormal-AT execution paths only. Transfer execution, stress tests, and measurement evidence flow are planned as later phases.
 
 ## Run tests
 
