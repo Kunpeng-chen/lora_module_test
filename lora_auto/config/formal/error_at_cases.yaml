@@ -1,42 +1,286 @@
-cases:
+error_at_cases:
   - id: ERRAT-001
-    suite: error_at
     feature: invalid_at_command
-    scenario: Invalid AT command returns parameter format error sample
-    priority: P1
-    automation_level: auto
-    devices: [A]
-    preconditions:
-      - Device A is connected and in AT mode.
-    steps:
-      - action: send_at
-        device: A
-        command: AT+UNKNOWN
-        expected:
-          mode: contains
-          value: ERROR=104
-      - action: post_check
-        device: A
-        command: AT
-        expected:
-          mode: contains
-          value: OK
-    expected:
-      - Invalid command returns ERROR=104 and the module remains responsive.
-    result_policy:
-      pass_when:
-        - The expected error code is returned and the post-check AT command returns OK.
-      fail_when:
-        - The expected error code is missing or the post-check fails.
-    evidence:
-      serial_log: null
-      logic_analyzer: null
-      power_record: null
-      rf_record: null
-      manual_note: null
-    metadata:
-      source: formal-test-case-design-plan Phase 1 sample
-      manual_ref: docs/manual/dx-lr31-900t22s-uart-application-guide.md
-      destructive: false
-      state_changing: false
-      run_policy: auto
+    command: "AT+"
+    expected_error: ERROR=104
+    scenario: "Malformed empty command suffix"
+  - id: ERRAT-002
+    feature: invalid_at_command
+    command: "AT+BAUD="
+    expected_error: ERROR=104
+    scenario: "Missing BAUD parameter"
+  - id: ERRAT-003
+    feature: invalid_at_command
+    command: "AT+PARI="
+    expected_error: ERROR=104
+    scenario: "Missing PARI parameter"
+  - id: ERRAT-004
+    feature: invalid_at_command
+    command: "AT+MODE="
+    expected_error: ERROR=104
+    scenario: "Missing MODE parameter"
+  - id: ERRAT-005
+    feature: invalid_at_command
+    command: "AT+SLEEP="
+    expected_error: ERROR=104
+    scenario: "Missing SLEEP parameter"
+  - id: ERRAT-006
+    feature: invalid_at_command
+    command: "AT+LEVEL="
+    expected_error: ERROR=104
+    scenario: "Missing LEVEL parameter"
+  - id: ERRAT-007
+    feature: invalid_at_command
+    command: "AT+CHANNEL="
+    expected_error: ERROR=104
+    scenario: "Missing CHANNEL parameter"
+  - id: ERRAT-008
+    feature: invalid_at_command
+    command: "AT+MAC="
+    expected_error: ERROR=104
+    scenario: "Missing MAC parameter"
+  - id: ERRAT-009
+    feature: invalid_at_command
+    command: "AT+POWE="
+    expected_error: ERROR=104
+    scenario: "Missing POWE parameter"
+  - id: ERRAT-010
+    feature: invalid_at_command
+    command: "AT+PACKET="
+    expected_error: ERROR=104
+    scenario: "Missing PACKET parameter"
+  - id: ERRAT-011
+    feature: invalid_at_command
+    command: "AT+KEY="
+    expected_error: ERROR=104
+    scenario: "Missing KEY parameter"
+  - id: ERRAT-012
+    feature: invalid_at_command
+    command: "AT+SWITCH="
+    expected_error: ERROR=104
+    scenario: "Missing SWITCH parameter"
+  - id: ERRAT-013
+    feature: invalid_at_command
+    command: "AT+LBT="
+    expected_error: ERROR=104
+    scenario: "Missing LBT parameter"
+  - id: ERRAT-014
+    feature: invalid_at_parameter
+    command: "AT+BAUD9"
+    expected_error: ERROR=105
+    scenario: "Out-of-range BAUD parameter"
+  - id: ERRAT-015
+    feature: invalid_at_parameter
+    command: "AT+BAUDX"
+    expected_error: ERROR=105
+    scenario: "Non-numeric BAUD parameter"
+  - id: ERRAT-016
+    feature: invalid_at_parameter
+    command: "AT+PARI9"
+    expected_error: ERROR=105
+    scenario: "Out-of-range PARI parameter"
+  - id: ERRAT-017
+    feature: invalid_at_parameter
+    command: "AT+PARIX"
+    expected_error: ERROR=105
+    scenario: "Non-numeric PARI parameter"
+  - id: ERRAT-018
+    feature: invalid_at_parameter
+    command: "AT+MODE9"
+    expected_error: ERROR=105
+    scenario: "Out-of-range MODE parameter"
+  - id: ERRAT-019
+    feature: invalid_at_parameter
+    command: "AT+MODEX"
+    expected_error: ERROR=105
+    scenario: "Non-numeric MODE parameter"
+  - id: ERRAT-020
+    feature: invalid_at_parameter
+    command: "AT+SLEEP9"
+    expected_error: ERROR=105
+    scenario: "Out-of-range SLEEP parameter"
+  - id: ERRAT-021
+    feature: invalid_at_parameter
+    command: "AT+SLEEPX"
+    expected_error: ERROR=105
+    scenario: "Non-numeric SLEEP parameter"
+  - id: ERRAT-022
+    feature: invalid_at_parameter
+    command: "AT+LEVEL9"
+    expected_error: ERROR=105
+    scenario: "Out-of-range LEVEL parameter"
+  - id: ERRAT-023
+    feature: invalid_at_parameter
+    command: "AT+LEVELX"
+    expected_error: ERROR=105
+    scenario: "Non-numeric LEVEL parameter"
+  - id: ERRAT-024
+    feature: invalid_at_parameter
+    command: "AT+CHANNELFF"
+    expected_error: ERROR=105
+    scenario: "Out-of-range CHANNEL parameter"
+  - id: ERRAT-025
+    feature: invalid_at_parameter
+    command: "AT+CHANNELXX"
+    expected_error: ERROR=105
+    scenario: "Non-hex CHANNEL parameter"
+  - id: ERRAT-026
+    feature: invalid_at_parameter
+    command: "AT+MACFFFF,FFFF"
+    expected_error: ERROR=105
+    scenario: "Out-of-range MAC parameter"
+  - id: ERRAT-027
+    feature: invalid_at_parameter
+    command: "AT+MACXX,YY"
+    expected_error: ERROR=105
+    scenario: "Non-hex MAC parameter"
+  - id: ERRAT-028
+    feature: invalid_at_parameter
+    command: "AT+POWE9"
+    expected_error: ERROR=105
+    scenario: "Out-of-range POWE parameter"
+  - id: ERRAT-029
+    feature: invalid_at_parameter
+    command: "AT+POWEX"
+    expected_error: ERROR=105
+    scenario: "Non-numeric POWE parameter"
+  - id: ERRAT-030
+    feature: invalid_at_parameter
+    command: "AT+PACKET9"
+    expected_error: ERROR=105
+    scenario: "Out-of-range PACKET parameter"
+  - id: ERRAT-031
+    feature: invalid_at_parameter
+    command: "AT+PACKETX"
+    expected_error: ERROR=105
+    scenario: "Non-numeric PACKET parameter"
+  - id: ERRAT-032
+    feature: invalid_at_parameter
+    command: "AT+KEY0000"
+    expected_error: ERROR=105
+    scenario: "Too-short KEY parameter"
+  - id: ERRAT-033
+    feature: invalid_at_parameter
+    command: "AT+KEY123456789012345678901234567890123"
+    expected_error: ERROR=105
+    scenario: "Too-long KEY parameter"
+  - id: ERRAT-034
+    feature: invalid_at_parameter
+    command: "AT+KEY@@@@@"
+    expected_error: ERROR=105
+    scenario: "Invalid KEY characters"
+  - id: ERRAT-035
+    feature: invalid_at_parameter
+    command: "AT+SWITCH9"
+    expected_error: ERROR=105
+    scenario: "Out-of-range SWITCH parameter"
+  - id: ERRAT-036
+    feature: invalid_at_parameter
+    command: "AT+SWITCHX"
+    expected_error: ERROR=105
+    scenario: "Non-numeric SWITCH parameter"
+  - id: ERRAT-037
+    feature: invalid_at_parameter
+    command: "AT+LBT9"
+    expected_error: ERROR=105
+    scenario: "Out-of-range LBT parameter"
+  - id: ERRAT-038
+    feature: invalid_at_parameter
+    command: "AT+LBTX"
+    expected_error: ERROR=105
+    scenario: "Non-numeric LBT parameter"
+  - id: ERRAT-039
+    feature: invalid_at_parameter
+    command: "AT+LRSSI9"
+    expected_error: ERROR=105
+    scenario: "Out-of-range LRSSI parameter"
+  - id: ERRAT-040
+    feature: invalid_at_parameter
+    command: "AT+LRSSIX"
+    expected_error: ERROR=105
+    scenario: "Non-numeric LRSSI parameter"
+  - id: ERRAT-041
+    feature: invalid_at_parameter
+    command: "AT+DRSSI9"
+    expected_error: ERROR=105
+    scenario: "Out-of-range DRSSI parameter"
+  - id: ERRAT-042
+    feature: invalid_at_parameter
+    command: "AT+DRSSIX"
+    expected_error: ERROR=105
+    scenario: "Non-numeric DRSSI parameter"
+  - id: ERRAT-043
+    feature: invalid_at_parameter
+    command: "AT+ERSSI9"
+    expected_error: ERROR=105
+    scenario: "Out-of-range ERSSI parameter"
+  - id: ERRAT-044
+    feature: invalid_at_parameter
+    command: "AT+ERSSIX"
+    expected_error: ERROR=105
+    scenario: "Non-numeric ERSSI parameter"
+  - id: ERRAT-045
+    feature: invalid_at_parameter
+    command: "AT+CHANNEL-1"
+    expected_error: ERROR=105
+    scenario: "Negative CHANNEL parameter"
+  - id: ERRAT-046
+    feature: invalid_at_parameter
+    command: "AT+MAC-1,01"
+    expected_error: ERROR=105
+    scenario: "Negative MAC high byte"
+  - id: ERRAT-047
+    feature: invalid_at_parameter
+    command: "AT+MAC00,-1"
+    expected_error: ERROR=105
+    scenario: "Negative MAC low byte"
+  - id: ERRAT-048
+    feature: invalid_at_parameter
+    command: "AT+BAUD10"
+    expected_error: ERROR=105
+    scenario: "Unsupported BAUD enum"
+  - id: ERRAT-049
+    feature: invalid_at_parameter
+    command: "AT+PARI10"
+    expected_error: ERROR=105
+    scenario: "Unsupported PARI enum"
+  - id: ERRAT-050
+    feature: invalid_at_parameter
+    command: "AT+MODE10"
+    expected_error: ERROR=105
+    scenario: "Unsupported MODE enum"
+  - id: ERRAT-051
+    feature: invalid_at_parameter
+    command: "AT+SLEEP10"
+    expected_error: ERROR=105
+    scenario: "Unsupported SLEEP enum"
+  - id: ERRAT-052
+    feature: invalid_at_parameter
+    command: "AT+LEVEL10"
+    expected_error: ERROR=105
+    scenario: "Unsupported LEVEL enum"
+  - id: ERRAT-053
+    feature: invalid_at_parameter
+    command: "AT+POWE10"
+    expected_error: ERROR=105
+    scenario: "Unsupported POWE enum"
+  - id: ERRAT-054
+    feature: invalid_at_parameter
+    command: "AT+PACKET10"
+    expected_error: ERROR=105
+    scenario: "Unsupported PACKET enum"
+  - id: ERRAT-055
+    feature: invalid_at_parameter
+    command: "AT+SWITCH10"
+    expected_error: ERROR=105
+    scenario: "Unsupported SWITCH enum"
+  - id: ERRAT-056
+    feature: invalid_at_parameter
+    command: "AT+LBT10"
+    expected_error: ERROR=105
+    scenario: "Unsupported LBT enum"
+  - id: ERRAT-057
+    feature: invalid_at_parameter
+    command: "AT+KEY中文"
+    expected_error: ERROR=105
+    scenario: "Non-ASCII KEY parameter"
