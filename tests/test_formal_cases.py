@@ -11,17 +11,52 @@ from lora_auto.libs.formal_cases import FormalCaseError, load_formal_case_direct
 FORMAL_CASE_DIR = Path(__file__).resolve().parents[1] / "lora_auto" / "config" / "formal"
 
 
-def test_loads_phase1_formal_case_samples() -> None:
+def test_loads_formal_case_samples_and_phase2_at_cases() -> None:
     cases = load_formal_case_directory(FORMAL_CASE_DIR)
 
-    assert [case["id"] for case in cases] == [
-        "MAIN-001",
-        "AT-001",
-        "ERRAT-001",
-        "SHIP-001",
-        "ITER-001",
+    assert [case["id"] for case in cases if case["suite"] == "at"] == [
+        f"AT-{index:03d}" for index in range(1, 21)
     ]
     assert {case["suite"] for case in cases} == {"main", "at", "error_at", "ship", "iter"}
+    assert {"MAIN-001", "ERRAT-001", "SHIP-001", "ITER-001"}.issubset(
+        {case["id"] for case in cases}
+    )
+
+
+def test_phase2_at_cases_include_command_expected_and_manual_ref() -> None:
+    cases = [case for case in load_formal_case_directory(FORMAL_CASE_DIR) if case["suite"] == "at"]
+
+    assert len(cases) == 20
+    for case in cases:
+        assert case["metadata"]["manual_ref"]
+        assert case["metadata"]["manual_ref"] != "docs/manual/dx-lr31-900t22s-uart-application-guide.md"
+        assert case["steps"]
+        for step in case["steps"]:
+            assert step["command"]
+            assert step["expected"]
+            assert step["expected"]["mode"] in {"contains", "contains_all", "regex", "exact"}
+
+
+def test_phase2_at_default_is_manual_confirm_and_destructive() -> None:
+    cases = {case["id"]: case for case in load_formal_case_directory(FORMAL_CASE_DIR)}
+
+    at_default = cases["AT-020"]
+    assert at_default["steps"][0]["command"] == "AT+DEFAULT"
+    assert at_default["automation_level"] == "semi_auto"
+    assert at_default["metadata"]["destructive"] is True
+    assert at_default["metadata"]["state_changing"] is True
+    assert at_default["metadata"]["run_policy"] == "manual_confirm"
+
+
+def test_phase2_at_reset_is_state_changing_manual_confirm() -> None:
+    cases = {case["id"]: case for case in load_formal_case_directory(FORMAL_CASE_DIR)}
+
+    at_reset = cases["AT-019"]
+    assert at_reset["steps"][0]["command"] == "AT+RESET"
+    assert at_reset["automation_level"] == "semi_auto"
+    assert at_reset["metadata"]["destructive"] is False
+    assert at_reset["metadata"]["state_changing"] is True
+    assert at_reset["metadata"]["run_policy"] == "manual_confirm"
 
 
 def test_missing_required_field_fails() -> None:
