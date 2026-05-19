@@ -195,7 +195,11 @@ lora_auto/config/formal/
 
 Phase 1 intentionally includes only one sample from each suite: `MAIN-001`, `AT-001`, `ERRAT-001`, `SHIP-001`, and `ITER-001`. The loader in `lora_auto/libs/formal_cases.py` validates required fields, case ID uniqueness, priority values, automation levels, run policies, and destructive-case safety. Destructive cases can be represented, but they must not use `run_policy: auto`; use `manual_confirm` or `skip_by_default` instead.
 
-This baseline is data/model preparation only. The formal runner, full AT command set, transfer execution, stress tests, and measurement evidence flow are planned as later phases.
+Phase 2 expands `at_cases.yaml` to `AT-001` through `AT-020`. These AT cases are data/model definitions sourced from `docs/manual/dx-lr31-900t22s-uart-application-guide.md`, and each case records its command, expected assertion, and manual reference. Expected assertions use explicit modes such as `contains`, `contains_all`, or `regex`.
+
+State-changing AT cases are not selected for automatic execution by default. `AT+RESET` is marked `semi_auto` with `run_policy: manual_confirm`; `AT+DEFAULT` is additionally marked `destructive: true` and must remain manual-confirm only.
+
+This baseline is data/model preparation only. The formal runner, transfer execution, stress tests, and measurement evidence flow are planned as later phases.
 
 ## Run tests
 
