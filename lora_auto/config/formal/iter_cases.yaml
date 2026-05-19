@@ -1,0 +1,36 @@
+cases:
+  - id: ITER-001
+    suite: iter
+    feature: iteration_regression
+    scenario: Iteration regression smoke sample
+    priority: P1
+    automation_level: semi_auto
+    devices: [A, B]
+    preconditions:
+      - Devices are loaded with the iteration firmware candidate.
+    steps:
+      - action: run_iteration_smoke
+        device: null
+        command: null
+        expected:
+          mode: manual_confirm
+          value: regression pass
+    expected:
+      - Iteration regression smoke flow is completed and recorded.
+    result_policy:
+      pass_when:
+        - Operator records the required regression evidence.
+      fail_when:
+        - Required regression evidence is missing.
+    evidence:
+      serial_log: null
+      logic_analyzer: null
+      power_record: null
+      rf_record: null
+      manual_note: null
+    metadata:
+      source: formal-test-case-design-plan Phase 1 sample
+      manual_ref: null
+      destructive: false
+      state_changing: true
+      run_policy: manual_confirm
