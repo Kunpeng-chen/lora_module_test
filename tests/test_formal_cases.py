@@ -48,7 +48,7 @@ def test_phase4_error_at_cases_use_expected_error_codes_and_post_check() -> None
     cases = [case for case in load_formal_case_directory(FORMAL_CASE_DIR) if case["suite"] == "error_at"]
 
     for index, case in enumerate(cases, start=1):
-        expected_error = "ERROR=104" if index <= 13 else "ERROR=105"
+        expected_error = "ERROR=101" if index <= 13 else "ERROR=101"
         assert case["automation_level"] == "auto"
         assert case["metadata"]["run_policy"] == "auto"
         assert case["metadata"]["destructive"] is False

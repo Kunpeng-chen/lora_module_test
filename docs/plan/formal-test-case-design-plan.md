@@ -29,7 +29,7 @@
 | `AT+DEFAULT` 是否自动执行 | 不允许自动执行，必须标记为 destructive / manual_confirm |
 | 广播测试是否有 C 模块 | 存在 C 模块，广播用例按 A/B/C 设计 |
 | KEY 设置策略 | 收发端都设置；广播场景 A/B/C 都设置相同 KEY |
-| 异常 AT 错误码格式 | 统一使用 `ERROR=<code>`，例如 `ERROR=104`、`ERROR=105` |
+| 异常 AT 错误码格式 | 统一使用 `ERROR=<code>`，例如 `ERROR=101`|
 
 ## 3. 拆分依据
 
@@ -345,13 +345,12 @@ README 影响：
 
 目标行为：
 
-57 条异常 AT 用例全部参数化，执行时断言 `ERROR=104` 或 `ERROR=105`，并在每条异常命令后追加 `AT` 健康检查。
+57 条异常 AT 用例全部参数化，执行时断言 `ERROR=101`，并在每条异常命令后追加 `AT` 健康检查。
 
 任务：
 
 - 在 `error_at_cases.yaml` 中录入 `ERRAT-001` ~ `ERRAT-057`。
-- `ERRAT-001` ~ `ERRAT-013` 断言 `ERROR=104`。
-- `ERRAT-014` ~ `ERRAT-057` 断言 `ERROR=105`。
+- `ERRAT-001` ~ `ERRAT-057` 断言 `ERROR=101`。
 - 每条异常命令后追加 post-check：
 
 ```yaml
@@ -377,7 +376,7 @@ post_check:
 验收标准：
 
 - 57 条 ERRAT 用例全部可加载。
-- mock 下可断言 `ERROR=104` / `ERROR=105`。
+- mock 下可断言 `ERROR=101`。
 - 每条异常 AT 用例都包含健康检查。
 - `ERROR=<code>` 为唯一标准格式，不使用手册中的 `EEROR` 拼写。
 

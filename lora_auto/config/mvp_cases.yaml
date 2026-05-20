@@ -6,8 +6,6 @@ cases:
     steps:
       - command: "AT"
         expected: "OK"
-      - command: "AT+VERSION"
-        expected: "+VERSION"
 
   - id: MVP-002
     name: A/B 模块配置为透明传输

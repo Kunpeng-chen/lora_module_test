@@ -191,7 +191,7 @@ def test_run_regex_at_case_with_mock_device() -> None:
 
 def test_run_error_at_104_case_with_post_check() -> None:
     case = cases_by_id()["ERRAT-001"]
-    device = FakeDevice(responses={"AT": "OK", "AT+": "ERROR=104"})
+    device = FakeDevice(responses={"AT": "OK", "AT+": "ERROR=101"})
     runner = FormalAtRunner({"A": device})
 
     result = runner.run_case(case)
@@ -202,7 +202,7 @@ def test_run_error_at_104_case_with_post_check() -> None:
 
 def test_run_error_at_105_case_with_post_check() -> None:
     case = cases_by_id()["ERRAT-014"]
-    device = FakeDevice(responses={"AT": "OK", "AT+BAUD9": "ERROR=105"})
+    device = FakeDevice(responses={"AT": "OK", "AT+BAUD9": "ERROR=101"})
     runner = FormalAtRunner({"A": device})
 
     result = runner.run_case(case)
@@ -213,7 +213,7 @@ def test_run_error_at_105_case_with_post_check() -> None:
 
 def test_error_at_case_fails_when_health_check_fails() -> None:
     case = cases_by_id()["ERRAT-001"]
-    device = FakeDevice(responses={"AT": ["OK", ""], "AT+": "ERROR=104"})
+    device = FakeDevice(responses={"AT": ["OK", ""], "AT+": "ERROR=101"})
     runner = FormalAtRunner({"A": device})
 
     result = runner.run_case(case)
