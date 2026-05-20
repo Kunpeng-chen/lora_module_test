@@ -94,7 +94,7 @@ def expand_error_at_cases(items: Any, source: str = "formal error AT cases") -> 
         expected_error = _required_matrix_string(item, "expected_error", index, source)
         scenario = _required_matrix_string(item, "scenario", index, source)
 
-        if expected_error not in {"ERROR=104", "ERROR=105"}:
+        if expected_error not in {"ERROR=101"}:
             raise FormalCaseError(
                 f"error_at_cases row {case_id!r} in {source} has unsupported expected_error {expected_error!r}"
             )

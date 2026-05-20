@@ -217,7 +217,7 @@ python lora_auto/test_formal.py --case ERRAT-001
 python lora_auto/test_formal.py --suite error_at --dry-run
 ```
 
-The `error_at` suite expands `ERRAT-001` through `ERRAT-057` from `lora_auto/config/formal/error_at_cases.yaml`. `ERRAT-001` through `ERRAT-013` expect `ERROR=104`; `ERRAT-014` through `ERRAT-057` expect `ERROR=105`. Receiving the configured error code is a PASS condition for the negative command step. Each negative command is followed by a post-check `AT -> OK`; missing the expected error code or failing the post-check makes the case FAIL. The runner uses the normalized `ERROR=<code>` spelling rather than the manual typo `EEROR`.
+The `error_at` suite expands `ERRAT-001` through `ERRAT-057` from `lora_auto/config/formal/error_at_cases.yaml`. expect `ERROR=101`. Receiving the configured error code is a PASS condition for the negative command step. Each negative command is followed by a post-check `AT -> OK`; missing the expected error code or failing the post-check makes the case FAIL. The runner uses the normalized `ERROR=<code>` spelling rather than the manual typo `EEROR`.
 
 Reports are written with the existing report layout:
 

@@ -1,10 +1,10 @@
 devices:
   A:
-    port: "COM3"
+    port: "COM30"
     baudrate: 9600
     role: sender
 
   B:
-    port: "COM4"
+    port: "COM32"
     baudrate: 9600
     role: receiver
