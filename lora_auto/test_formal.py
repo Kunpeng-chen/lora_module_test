@@ -23,7 +23,17 @@ from lora_auto.libs.lora_device import LoraDevice
 from lora_auto.libs.report import ReportCase, ReportStep, utc_now_iso, write_device_log, write_reports
 
 LOGGER = logging.getLogger(__name__)
-SUPPORTED_SUITES = frozenset({"at", "error_at"})
+SUPPORTED_SUITES = frozenset({"at", "error_at", "main"})
+TRANSFER_ACTIONS = frozenset(
+    {
+        "configure_transfer_round",
+        "send_plain_payload",
+        "send_fixed_payload",
+        "send_broadcast_payload",
+        "receive_payload",
+        "multi_receiver_assert",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -112,10 +122,29 @@ def is_error_at_case(case: dict[str, Any]) -> bool:
     )
 
 
+def is_transfer_case(case: dict[str, Any]) -> bool:
+    """Return whether a main-suite formal case can be executed by the transfer runner."""
+
+    steps = case.get("steps", [])
+    return (
+        case.get("suite") == "main"
+        and bool(steps)
+        and all(step.get("action") in TRANSFER_ACTIONS for step in steps)
+    )
+
+
 def is_auto_runnable(case: dict[str, Any]) -> bool:
     """Return whether a case is safe for default automatic execution."""
 
     metadata = case.get("metadata", {})
+    if (
+        is_transfer_case(case)
+        and case.get("automation_level") == "auto"
+        and metadata.get("run_policy") == "auto"
+        and metadata.get("destructive") is not True
+    ):
+        return True
+
     return (
         case.get("automation_level") == "auto"
         and metadata.get("run_policy") == "auto"
@@ -175,7 +204,7 @@ def describe_case_selection(cases: list[dict[str, Any]]) -> list[str]:
 
 
 class FormalAtRunner:
-    """Executes formal AT normal and negative-command cases."""
+    """Executes formal AT and formal transfer cases."""
 
     def __init__(self, devices: dict[str, LoraDevice], report_dir: str | Path = "reports") -> None:
         self.devices = devices
@@ -214,6 +243,11 @@ class FormalAtRunner:
                 failure_reason="case requires manual confirmation or is not run automatically",
             )
 
+        if is_transfer_case(case):
+            return self._run_transfer_case(case)
+        return self._run_at_case(case)
+
+    def _run_at_case(self, case: dict[str, Any]) -> FormalCaseResult:
         start_time = utc_now_iso()
         start_monotonic = time.monotonic()
         executed_steps: list[str] = []
@@ -223,7 +257,55 @@ class FormalAtRunner:
             for device_name in dict.fromkeys(device_names):
                 executed_steps.extend(self.ensure_at_mode(self._get_device(device_name)))
             for step in case.get("steps", []):
-                executed_steps.append(self._run_step(case, step))
+                executed_steps.append(self._run_at_step(case, step))
+        except Exception as exc:
+            end_time = utc_now_iso()
+            duration = time.monotonic() - start_monotonic
+            return self._build_result(
+                case=case,
+                status="FAIL",
+                start_time=start_time,
+                end_time=end_time,
+                duration=duration,
+                steps=executed_steps,
+                failure_reason=str(exc),
+            )
+
+        end_time = utc_now_iso()
+        duration = time.monotonic() - start_monotonic
+        return self._build_result(
+            case=case,
+            status="PASS",
+            start_time=start_time,
+            end_time=end_time,
+            duration=duration,
+            steps=executed_steps,
+        )
+
+    def _run_transfer_case(self, case: dict[str, Any]) -> FormalCaseResult:
+        start_time = utc_now_iso()
+        start_monotonic = time.monotonic()
+        executed_steps: list[str] = []
+        current_roles: dict[str, Any] = {}
+
+        try:
+            for step in case.get("steps", []):
+                action = step["action"]
+                if action == "configure_transfer_round":
+                    current_roles = step.get("roles") or {}
+                    executed_steps.extend(self._configure_transfer_round(case, step))
+                elif action == "send_plain_payload":
+                    executed_steps.append(self._send_plain_payload(case, step, current_roles))
+                elif action == "send_fixed_payload":
+                    executed_steps.append(self._send_fixed_payload(case, step, current_roles))
+                elif action == "send_broadcast_payload":
+                    executed_steps.append(self._send_broadcast_payload(case, step, current_roles))
+                elif action == "receive_payload":
+                    executed_steps.append(self._receive_payload(case, step))
+                elif action == "multi_receiver_assert":
+                    executed_steps.extend(self._multi_receiver_assert(case, step))
+                else:
+                    raise FormalRunnerError(f"case {case['id']} has unsupported transfer action {action!r}")
         except Exception as exc:
             end_time = utc_now_iso()
             duration = time.monotonic() - start_monotonic
@@ -249,12 +331,7 @@ class FormalAtRunner:
         )
 
     def ensure_at_mode(self, device: LoraDevice) -> list[str]:
-        """Ensure a device is in AT mode before running query-style AT cases.
-
-        The method first probes with ``AT``. If the module is already in AT
-        mode, it returns after the OK response. If not, it sends ``+++`` to
-        enter AT mode, then verifies the mode by sending ``AT`` again.
-        """
+        """Ensure a device is in AT mode before running query-style AT cases."""
 
         probe = device.at.send_cmd("AT", expected="OK", timeout=0.5)
         if probe.passed:
@@ -278,7 +355,7 @@ class FormalAtRunner:
             f"{device.name}: ensure_at_mode verified -> {verify.response!r}",
         ]
 
-    def _run_step(self, case: dict[str, Any], step: dict[str, Any]) -> str:
+    def _run_at_step(self, case: dict[str, Any], step: dict[str, Any]) -> str:
         action = step["action"]
         device = self._get_device(step.get("device"))
         command = step.get("command")
@@ -304,9 +381,145 @@ class FormalAtRunner:
             )
         return detail
 
+    def _configure_transfer_round(self, case: dict[str, Any], step: dict[str, Any]) -> list[str]:
+        config = step.get("config")
+        if not isinstance(config, dict) or not config:
+            raise FormalRunnerError(f"case {case['id']} configure_transfer_round must define config")
+
+        transfer_type = str(step.get("transfer_type") or case.get("feature"))
+        details: list[str] = []
+        for device_name, device_config in config.items():
+            if not isinstance(device_config, dict):
+                raise FormalRunnerError(f"case {case['id']} device config for {device_name!r} must be a mapping")
+            device = self._get_device(str(device_name))
+            device.serial.clear_buffer()
+            details.append(self._enter_at_for_config(device))
+            commands = self._build_transfer_config_commands(transfer_type, device_config)
+            for command in commands:
+                details.append(self._send_config_command(device, command))
+            details.append(self._reset_after_config(device))
+        return details
+
+    def _build_transfer_config_commands(
+        self,
+        transfer_type: str,
+        device_config: dict[str, Any],
+    ) -> list[str]:
+        sleep = normalize_at_value(device_config.get("sleep", "SLEEP2"), "SLEEP")
+        mode = normalize_at_value(device_config.get("mode", default_mode_for_transfer(transfer_type)), "MODE")
+        level = normalize_at_value(device_config.get("level", "2"), "LEVEL")
+        channel = normalize_hex_value(device_config.get("channel", "01"))
+        mac = normalize_mac_value(device_config.get("mac"))
+        key = device_config.get("key")
+
+        commands = [
+            f"AT+SLEEP{sleep}",
+            f"AT+MODE{mode}",
+            f"AT+LEVEL{level}",
+            f"AT+CHANNEL{channel}",
+        ]
+        if mac:
+            commands.append(f"AT+MAC{mac}")
+        if key is not None:
+            commands.append(f"AT+KEY{key}")
+        return commands
+
+    def _enter_at_for_config(self, device: LoraDevice) -> str:
+        result = device.at.enter_at(timeout=2.0)
+        detail = f"{device.name}: +++ -> {result.response!r}"
+        if not result.passed:
+            raise FormalRunnerError(f"{detail}; failed to enter AT mode for transfer config")
+        return detail
+
+    def _send_config_command(self, device: LoraDevice, command: str) -> str:
+        result = device.at.send_cmd(command, expected="OK")
+        detail = f"{device.name}: {command} -> {result.response!r}"
+        if not result.passed:
+            raise FormalRunnerError(f"{detail}; expected OK")
+        return detail
+
+    def _reset_after_config(self, device: LoraDevice) -> str:
+        result = device.at.reset(expected="OK")
+        detail = f"{device.name}: AT+RESET -> {result.response!r}"
+        if not result.passed:
+            raise FormalRunnerError(f"{detail}; expected OK")
+        return detail
+
+    def _send_plain_payload(
+        self,
+        case: dict[str, Any],
+        step: dict[str, Any],
+        current_roles: dict[str, Any],
+    ) -> str:
+        device = self._get_device(step.get("device"))
+        payload = str((step.get("payload") or {}).get("payload") or step.get("command") or "")
+        if not payload:
+            raise FormalRunnerError(f"case {case['id']} send_plain_payload must define payload")
+        self._clear_transfer_buffers(device, current_roles)
+        device.serial.write_text(payload, append_newline=False)
+        return f"{device.name}: sent plain payload {payload!r}"
+
+    def _send_fixed_payload(
+        self,
+        case: dict[str, Any],
+        step: dict[str, Any],
+        current_roles: dict[str, Any],
+    ) -> str:
+        device = self._get_device(step.get("device"))
+        payload = build_fixed_hex_frame(step.get("payload"))
+        self._clear_transfer_buffers(device, current_roles)
+        device.serial.write_hex(payload)
+        return f"{device.name}: sent fixed hex {payload}"
+
+    def _send_broadcast_payload(
+        self,
+        case: dict[str, Any],
+        step: dict[str, Any],
+        current_roles: dict[str, Any],
+    ) -> str:
+        device = self._get_device(step.get("device"))
+        payload = build_broadcast_hex_frame(step.get("payload"))
+        self._clear_transfer_buffers(device, current_roles)
+        device.serial.write_hex(payload)
+        return f"{device.name}: sent broadcast hex {payload}"
+
+    def _clear_transfer_buffers(self, sender: LoraDevice, current_roles: dict[str, Any]) -> None:
+        sender.serial.clear_buffer()
+        for receiver_name in current_roles.get("receivers", []) or []:
+            self._get_device(str(receiver_name)).serial.clear_buffer()
+
+    def _receive_payload(self, case: dict[str, Any], step: dict[str, Any]) -> str:
+        device = self._get_device(step.get("device"))
+        expected = step.get("expected")
+        read_until = expected_read_until(expected)
+        response = device.serial.read_until(read_until, timeout=float(step.get("timeout", 5.0)))
+        passed, message = match_expected(response.data, expected)
+        detail = f"{device.name}: received {response.data!r}"
+        if not response.matched or not passed:
+            raise FormalRunnerError(f"{detail}; expected {expected!r}; assertion={message}")
+        return detail
+
+    def _multi_receiver_assert(self, case: dict[str, Any], step: dict[str, Any]) -> list[str]:
+        expected = step.get("expected")
+        if not isinstance(expected, dict):
+            raise FormalRunnerError(f"case {case['id']} multi_receiver_assert must define expected")
+        receivers = expected.get("receivers")
+        value = expected.get("value")
+        if not isinstance(receivers, list) or not receivers:
+            raise FormalRunnerError(f"case {case['id']} multi_receiver_assert must define receivers")
+        details: list[str] = []
+        for receiver_name in receivers:
+            device = self._get_device(str(receiver_name))
+            response = device.serial.read_until(str(value), timeout=float(step.get("timeout", 5.0)))
+            detail = f"{device.name}: received {response.data!r}"
+            if not response.matched or str(value) not in response.data:
+                raise FormalRunnerError(f"{detail}; expected receiver payload {value!r}")
+            details.append(detail)
+        return details
+
     def _get_device(self, name: str | None) -> LoraDevice:
         if not name:
-            raise FormalRunnerError("formal AT step must define a device")
+            raise FormalRunnerError("formal step must define a device")
         try:
             return self.devices[name]
         except KeyError as exc:
@@ -346,6 +559,67 @@ class FormalAtRunner:
         )
 
 
+def normalize_at_value(value: Any, prefix: str) -> str:
+    """Normalize YAML values such as SLEEP2 or MODE0 to the AT suffix value."""
+
+    text = str(value)
+    if text.upper().startswith(prefix):
+        return text[len(prefix) :]
+    return text
+
+
+def normalize_hex_value(value: Any) -> str:
+    """Normalize one hex field by removing common separators."""
+
+    return str(value).replace(",", "").replace(" ", "").upper()
+
+
+def normalize_mac_value(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value)
+    return text if "," in text else f"{text[:2]},{text[2:]}"
+
+
+def default_mode_for_transfer(transfer_type: str) -> str:
+    """Return the default AT+MODE suffix for a transfer type."""
+
+    if transfer_type == "transparent_transfer":
+        return "0"
+    return "1"
+
+
+def ascii_to_hex(payload: str) -> str:
+    """Encode a text payload as uppercase hexadecimal bytes."""
+
+    return payload.encode("utf-8").hex().upper()
+
+
+def build_fixed_hex_frame(payload_config: Any) -> str:
+    """Build target_mac + channel + data for a fixed-transfer HEX frame."""
+
+    if not isinstance(payload_config, dict):
+        raise FormalRunnerError("fixed payload must be a mapping")
+    target_mac = normalize_hex_value(payload_config.get("target_mac"))
+    channel = normalize_hex_value(payload_config.get("channel"))
+    payload = str(payload_config.get("payload", ""))
+    if not target_mac or not channel or not payload:
+        raise FormalRunnerError("fixed payload requires target_mac, channel, and payload")
+    return f"{target_mac}{channel}{ascii_to_hex(payload)}"
+
+
+def build_broadcast_hex_frame(payload_config: Any) -> str:
+    """Build channel + data for a broadcast-transfer HEX frame."""
+
+    if not isinstance(payload_config, dict):
+        raise FormalRunnerError("broadcast payload must be a mapping")
+    channel = normalize_hex_value(payload_config.get("channel"))
+    payload = str(payload_config.get("payload", ""))
+    if not channel or not payload:
+        raise FormalRunnerError("broadcast payload requires channel and payload")
+    return f"{channel}{ascii_to_hex(payload)}"
+
+
 def expected_read_until(expected: dict[str, Any]) -> str:
     """Choose a concrete substring for serial read_until from a structured expectation."""
 
@@ -357,6 +631,8 @@ def expected_read_until(expected: dict[str, Any]) -> str:
         if not isinstance(values, list) or not values:
             raise FormalRunnerError("contains_all expectation must include a non-empty values list")
         return str(values[0])
+    if mode == "contains_all_receivers":
+        return str(expected.get("value"))
     if mode == "regex":
         value = str(expected.get("value", ""))
         prefix_match = re.match(r"\\\+([A-Z]+)=", value)
@@ -379,6 +655,9 @@ def match_expected(response: str, expected: dict[str, Any]) -> tuple[bool, str]:
             raise FormalRunnerError("contains_all expectation must include a non-empty values list")
         missing = [str(value) for value in values if str(value) not in response]
         return (not missing, f"expected response to contain all values; missing={missing!r}")
+    if mode == "contains_all_receivers":
+        value = str(expected.get("value"))
+        return (value in response, f"expected all receivers to contain {value!r}")
     if mode == "regex":
         pattern = str(expected.get("value"))
         return (re.search(pattern, response) is not None, f"expected response to match regex {pattern!r}")
@@ -422,7 +701,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run LoRa formal cases.")
     parser.add_argument("--config", default="lora_auto/config/devices.yaml", help="Device config YAML path.")
     parser.add_argument("--cases-dir", default="lora_auto/config/formal", help="Formal case directory.")
-    parser.add_argument("--suite", default="at", help="Run a formal suite. Supports 'at' and 'error_at'.")
+    parser.add_argument("--suite", default="at", help="Run a formal suite. Supports 'at', 'error_at', and 'main'.")
     parser.add_argument("--case", dest="case_id", default=None, help="Run only one case ID.")
     parser.add_argument("--include-manual", action="store_true", help="Include manual-confirm cases in selection.")
     parser.add_argument("--dry-run", action="store_true", help="Print the selected execution plan without opening hardware.")
