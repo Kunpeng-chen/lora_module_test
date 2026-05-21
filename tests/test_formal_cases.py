@@ -17,10 +17,82 @@ def test_loads_formal_case_samples_and_phase2_at_cases() -> None:
     assert [case["id"] for case in cases if case["suite"] == "at"] == [
         f"AT-{index:03d}" for index in range(1, 21)
     ]
+    assert [case["id"] for case in cases if case["suite"] == "main"] == [
+        f"MAIN-{index:03d}" for index in range(1, 7)
+    ]
     assert {case["suite"] for case in cases} == {"main", "at", "error_at", "ship", "iter"}
-    assert {"MAIN-001", "ERRAT-001", "SHIP-001", "ITER-001"}.issubset(
+    assert {"ERRAT-001", "SHIP-001", "ITER-001"}.issubset(
         {case["id"] for case in cases}
     )
+
+
+def test_phase5_main_transfer_cases_cover_types_modes_and_roles() -> None:
+    cases = [case for case in load_formal_case_directory(FORMAL_CASE_DIR) if case["suite"] == "main"]
+
+    assert len(cases) == 6
+    assert {case["feature"] for case in cases} == {
+        "transparent_transfer",
+        "fixed_transfer",
+        "broadcast_transfer",
+    }
+    assert {case["metadata"]["work_mode"] for case in cases} == {"SLEEP1", "SLEEP2"}
+
+    cases_by_id = {case["id"]: case for case in cases}
+    assert cases_by_id["MAIN-001"]["feature"] == "transparent_transfer"
+    assert cases_by_id["MAIN-002"]["feature"] == "transparent_transfer"
+    assert cases_by_id["MAIN-003"]["feature"] == "fixed_transfer"
+    assert cases_by_id["MAIN-004"]["feature"] == "fixed_transfer"
+    assert cases_by_id["MAIN-005"]["feature"] == "broadcast_transfer"
+    assert cases_by_id["MAIN-006"]["feature"] == "broadcast_transfer"
+    assert cases_by_id["MAIN-005"]["devices"] == ["A", "B", "C"]
+    assert cases_by_id["MAIN-006"]["devices"] == ["A", "B", "C"]
+
+
+def test_phase5_main_transfer_cases_model_key_rounds_for_all_participants() -> None:
+    cases = [case for case in load_formal_case_directory(FORMAL_CASE_DIR) if case["suite"] == "main"]
+
+    for case in cases:
+        configure_steps = [step for step in case["steps"] if step["action"] == "configure_transfer_round"]
+        assert [step["key_mode"] for step in configure_steps] == ["no_key", "shared_key"]
+        assert case["metadata"]["key_modes"] == ["no_key", "shared_key"]
+
+        no_key_step, shared_key_step = configure_steps
+        assert set(no_key_step["config"]) == set(case["devices"])
+        assert set(shared_key_step["config"]) == set(case["devices"])
+        assert all(device_config["key"] is None for device_config in no_key_step["config"].values())
+
+        shared_keys = {device_config["key"] for device_config in shared_key_step["config"].values()}
+        assert shared_keys == {shared_key_step["shared_key"]}
+
+
+def test_phase5_fixed_and_broadcast_payloads_are_structured() -> None:
+    cases = {case["id"]: case for case in load_formal_case_directory(FORMAL_CASE_DIR)}
+
+    for case_id in ("MAIN-003", "MAIN-004"):
+        payload_steps = [step for step in cases[case_id]["steps"] if step["action"] == "send_fixed_payload"]
+        assert len(payload_steps) == 2
+        for step in payload_steps:
+            assert step["payload"] == {
+                "target_mac": "00,02",
+                "channel": "01",
+                "payload": "12345678",
+                "encoding": "fixed_hex_frame",
+            }
+
+    for case_id in ("MAIN-005", "MAIN-006"):
+        payload_steps = [step for step in cases[case_id]["steps"] if step["action"] == "send_broadcast_payload"]
+        assert len(payload_steps) == 2
+        for step in payload_steps:
+            assert step["payload"] == {
+                "channel": "01",
+                "payload": "12345678",
+                "encoding": "broadcast_hex_frame",
+            }
+        receiver_asserts = [
+            step for step in cases[case_id]["steps"] if step["action"] == "multi_receiver_assert"
+        ]
+        assert len(receiver_asserts) == 2
+        assert all(step["expected"]["receivers"] == ["B", "C"] for step in receiver_asserts)
 
 
 def test_phase2_at_cases_include_command_expected_and_manual_ref() -> None:
