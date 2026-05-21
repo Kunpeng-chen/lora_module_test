@@ -10,8 +10,8 @@ cases:
   - B
   preconditions:
   - Devices A, B are connected and can be configured for SLEEP2.
-  - The formal transfer runner is responsible for applying the round configuration
-    before each payload send.
+  - The formal transfer runner is responsible for applying the round configuration before
+    each payload send.
   steps:
   - action: configure_transfer_round
     device: null
@@ -41,17 +41,17 @@ cases:
         mac: 00,02
   - action: send_plain_payload
     device: A
-    command: '12345678'
+    command: ABCDEFGHIJKLMNOPQRSTUVWXYZ
     expected: null
     payload:
-      payload: '12345678'
+      payload: ABCDEFGHIJKLMNOPQRSTUVWXYZ
       encoding: plain_text
   - action: receive_payload
     device: B
     command: null
     expected:
       mode: contains
-      value: '12345678'
+      value: ABCDEFGHIJKLMNOPQRSTUVWXYZ
   - action: configure_transfer_round
     device: null
     command: null
@@ -80,26 +80,26 @@ cases:
         mac: 00,02
   - action: send_plain_payload
     device: A
-    command: '12345678'
+    command: ABCDEFGHIJKLMNOPQRSTUVWXYZ
     expected: null
     payload:
-      payload: '12345678'
+      payload: ABCDEFGHIJKLMNOPQRSTUVWXYZ
       encoding: plain_text
   - action: receive_payload
     device: B
     command: null
     expected:
       mode: contains
-      value: '12345678'
+      value: ABCDEFGHIJKLMNOPQRSTUVWXYZ
   expected:
-  - B receive payload 12345678 in both no-KEY and shared-KEY rounds.
+  - B receive payload ABCDEFGHIJKLMNOPQRSTUVWXYZ in both no-KEY and shared-KEY rounds.
   result_policy:
     pass_when:
-    - All configured no-KEY and shared-KEY transparent_transfer rounds deliver the
-      expected payload to every receiver.
+    - All configured no-KEY and shared-KEY transparent_transfer rounds deliver the expected
+      payload to every receiver.
     fail_when:
-    - Any transparent_transfer round misses the expected payload, uses mismatched
-      device roles, or has inconsistent KEY configuration.
+    - Any transparent_transfer round misses the expected payload, uses mismatched device roles,
+      or has inconsistent KEY configuration.
   evidence:
     serial_log: null
     logic_analyzer: null
@@ -129,8 +129,8 @@ cases:
   - B
   preconditions:
   - Devices A, B are connected and can be configured for SLEEP1.
-  - The formal transfer runner is responsible for applying the round configuration
-    before each payload send.
+  - The formal transfer runner is responsible for applying the round configuration before
+    each payload send.
   steps:
   - action: configure_transfer_round
     device: null
@@ -160,17 +160,17 @@ cases:
         mac: 00,02
   - action: send_plain_payload
     device: A
-    command: '12345678'
+    command: ABCDEFGHIJKLMNOPQRSTUVWXYZ
     expected: null
     payload:
-      payload: '12345678'
+      payload: ABCDEFGHIJKLMNOPQRSTUVWXYZ
       encoding: plain_text
   - action: receive_payload
     device: B
     command: null
     expected:
       mode: contains
-      value: '12345678'
+      value: ABCDEFGHIJKLMNOPQRSTUVWXYZ
   - action: configure_transfer_round
     device: null
     command: null
@@ -199,26 +199,26 @@ cases:
         mac: 00,02
   - action: send_plain_payload
     device: A
-    command: '12345678'
+    command: ABCDEFGHIJKLMNOPQRSTUVWXYZ
     expected: null
     payload:
-      payload: '12345678'
+      payload: ABCDEFGHIJKLMNOPQRSTUVWXYZ
       encoding: plain_text
   - action: receive_payload
     device: B
     command: null
     expected:
       mode: contains
-      value: '12345678'
+      value: ABCDEFGHIJKLMNOPQRSTUVWXYZ
   expected:
-  - B receive payload 12345678 in both no-KEY and shared-KEY rounds.
+  - B receive payload ABCDEFGHIJKLMNOPQRSTUVWXYZ in both no-KEY and shared-KEY rounds.
   result_policy:
     pass_when:
-    - All configured no-KEY and shared-KEY transparent_transfer rounds deliver the
-      expected payload to every receiver.
+    - All configured no-KEY and shared-KEY transparent_transfer rounds deliver the expected
+      payload to every receiver.
     fail_when:
-    - Any transparent_transfer round misses the expected payload, uses mismatched
-      device roles, or has inconsistent KEY configuration.
+    - Any transparent_transfer round misses the expected payload, uses mismatched device roles,
+      or has inconsistent KEY configuration.
   evidence:
     serial_log: null
     logic_analyzer: null
@@ -240,8 +240,7 @@ cases:
 - id: MAIN-003
   suite: main
   feature: fixed_transfer
-  scenario: SLEEP2 high-speed fixed transfer to target MAC without and with shared
-    KEY
+  scenario: SLEEP2 high-speed fixed transfer to target MAC without and with shared KEY
   priority: P0
   automation_level: auto
   devices:
@@ -249,8 +248,8 @@ cases:
   - B
   preconditions:
   - Devices A, B are connected and can be configured for SLEEP2.
-  - The formal transfer runner is responsible for applying the round configuration
-    before each payload send.
+  - The formal transfer runner is responsible for applying the round configuration before
+    each payload send.
   steps:
   - action: configure_transfer_round
     device: null
@@ -286,14 +285,14 @@ cases:
     payload:
       target_mac: 00,02
       channel: '01'
-      payload: '12345678'
+      payload: ABCDEFGHIJKLMNOPQRSTUVWXYZ
       encoding: fixed_hex_frame
   - action: receive_payload
     device: B
     command: null
     expected:
       mode: contains
-      value: '12345678'
+      value: ABCDEFGHIJKLMNOPQRSTUVWXYZ
   - action: configure_transfer_round
     device: null
     command: null
@@ -328,23 +327,23 @@ cases:
     payload:
       target_mac: 00,02
       channel: '01'
-      payload: '12345678'
+      payload: ABCDEFGHIJKLMNOPQRSTUVWXYZ
       encoding: fixed_hex_frame
   - action: receive_payload
     device: B
     command: null
     expected:
       mode: contains
-      value: '12345678'
+      value: ABCDEFGHIJKLMNOPQRSTUVWXYZ
   expected:
-  - B receive payload 12345678 in both no-KEY and shared-KEY rounds.
+  - B receive payload ABCDEFGHIJKLMNOPQRSTUVWXYZ in both no-KEY and shared-KEY rounds.
   result_policy:
     pass_when:
-    - All configured no-KEY and shared-KEY fixed_transfer rounds deliver the expected
-      payload to every receiver.
+    - All configured no-KEY and shared-KEY fixed_transfer rounds deliver the expected payload
+      to every receiver.
     fail_when:
-    - Any fixed_transfer round misses the expected payload, uses mismatched device
-      roles, or has inconsistent KEY configuration.
+    - Any fixed_transfer round misses the expected payload, uses mismatched device roles,
+      or has inconsistent KEY configuration.
   evidence:
     serial_log: null
     logic_analyzer: null
@@ -366,8 +365,7 @@ cases:
 - id: MAIN-004
   suite: main
   feature: fixed_transfer
-  scenario: SLEEP1 wake-on-air fixed transfer to target MAC without and with shared
-    KEY
+  scenario: SLEEP1 wake-on-air fixed transfer to target MAC without and with shared KEY
   priority: P1
   automation_level: auto
   devices:
@@ -375,8 +373,8 @@ cases:
   - B
   preconditions:
   - Devices A, B are connected and can be configured for SLEEP1.
-  - The formal transfer runner is responsible for applying the round configuration
-    before each payload send.
+  - The formal transfer runner is responsible for applying the round configuration before
+    each payload send.
   steps:
   - action: configure_transfer_round
     device: null
@@ -412,14 +410,14 @@ cases:
     payload:
       target_mac: 00,02
       channel: '01'
-      payload: '12345678'
+      payload: ABCDEFGHIJKLMNOPQRSTUVWXYZ
       encoding: fixed_hex_frame
   - action: receive_payload
     device: B
     command: null
     expected:
       mode: contains
-      value: '12345678'
+      value: ABCDEFGHIJKLMNOPQRSTUVWXYZ
   - action: configure_transfer_round
     device: null
     command: null
@@ -454,23 +452,23 @@ cases:
     payload:
       target_mac: 00,02
       channel: '01'
-      payload: '12345678'
+      payload: ABCDEFGHIJKLMNOPQRSTUVWXYZ
       encoding: fixed_hex_frame
   - action: receive_payload
     device: B
     command: null
     expected:
       mode: contains
-      value: '12345678'
+      value: ABCDEFGHIJKLMNOPQRSTUVWXYZ
   expected:
-  - B receive payload 12345678 in both no-KEY and shared-KEY rounds.
+  - B receive payload ABCDEFGHIJKLMNOPQRSTUVWXYZ in both no-KEY and shared-KEY rounds.
   result_policy:
     pass_when:
-    - All configured no-KEY and shared-KEY fixed_transfer rounds deliver the expected
-      payload to every receiver.
+    - All configured no-KEY and shared-KEY fixed_transfer rounds deliver the expected payload
+      to every receiver.
     fail_when:
-    - Any fixed_transfer round misses the expected payload, uses mismatched device
-      roles, or has inconsistent KEY configuration.
+    - Any fixed_transfer round misses the expected payload, uses mismatched device roles,
+      or has inconsistent KEY configuration.
   evidence:
     serial_log: null
     logic_analyzer: null
@@ -492,8 +490,7 @@ cases:
 - id: MAIN-005
   suite: main
   feature: broadcast_transfer
-  scenario: SLEEP2 high-speed broadcast transfer to B and C without and with shared
-    KEY
+  scenario: SLEEP2 high-speed broadcast transfer to B and C without and with shared KEY
   priority: P0
   automation_level: auto
   devices:
@@ -502,8 +499,8 @@ cases:
   - C
   preconditions:
   - Devices A, B, C are connected and can be configured for SLEEP2.
-  - The formal transfer runner is responsible for applying the round configuration
-    before each payload send.
+  - The formal transfer runner is responsible for applying the round configuration before
+    each payload send.
   steps:
   - action: configure_transfer_round
     device: null
@@ -543,7 +540,7 @@ cases:
     expected: null
     payload:
       channel: '01'
-      payload: '12345678'
+      payload: ABCDEFGHIJKLMNOPQRSTUVWXYZ
       encoding: broadcast_hex_frame
   - action: multi_receiver_assert
     device: null
@@ -553,7 +550,7 @@ cases:
       receivers:
       - B
       - C
-      value: '12345678'
+      value: ABCDEFGHIJKLMNOPQRSTUVWXYZ
   - action: configure_transfer_round
     device: null
     command: null
@@ -592,7 +589,7 @@ cases:
     expected: null
     payload:
       channel: '01'
-      payload: '12345678'
+      payload: ABCDEFGHIJKLMNOPQRSTUVWXYZ
       encoding: broadcast_hex_frame
   - action: multi_receiver_assert
     device: null
@@ -602,16 +599,16 @@ cases:
       receivers:
       - B
       - C
-      value: '12345678'
+      value: ABCDEFGHIJKLMNOPQRSTUVWXYZ
   expected:
-  - B, C receive payload 12345678 in both no-KEY and shared-KEY rounds.
+  - B, C receive payload ABCDEFGHIJKLMNOPQRSTUVWXYZ in both no-KEY and shared-KEY rounds.
   result_policy:
     pass_when:
-    - All configured no-KEY and shared-KEY broadcast_transfer rounds deliver the
-      expected payload to every receiver.
+    - All configured no-KEY and shared-KEY broadcast_transfer rounds deliver the expected
+      payload to every receiver.
     fail_when:
-    - Any broadcast_transfer round misses the expected payload, uses mismatched
-      device roles, or has inconsistent KEY configuration.
+    - Any broadcast_transfer round misses the expected payload, uses mismatched device roles,
+      or has inconsistent KEY configuration.
   evidence:
     serial_log: null
     logic_analyzer: null
@@ -633,8 +630,7 @@ cases:
 - id: MAIN-006
   suite: main
   feature: broadcast_transfer
-  scenario: SLEEP1 wake-on-air broadcast transfer to B and C without and with shared
-    KEY
+  scenario: SLEEP1 wake-on-air broadcast transfer to B and C without and with shared KEY
   priority: P1
   automation_level: auto
   devices:
@@ -643,8 +639,8 @@ cases:
   - C
   preconditions:
   - Devices A, B, C are connected and can be configured for SLEEP1.
-  - The formal transfer runner is responsible for applying the round configuration
-    before each payload send.
+  - The formal transfer runner is responsible for applying the round configuration before
+    each payload send.
   steps:
   - action: configure_transfer_round
     device: null
@@ -684,7 +680,7 @@ cases:
     expected: null
     payload:
       channel: '01'
-      payload: '12345678'
+      payload: ABCDEFGHIJKLMNOPQRSTUVWXYZ
       encoding: broadcast_hex_frame
   - action: multi_receiver_assert
     device: null
@@ -694,7 +690,7 @@ cases:
       receivers:
       - B
       - C
-      value: '12345678'
+      value: ABCDEFGHIJKLMNOPQRSTUVWXYZ
   - action: configure_transfer_round
     device: null
     command: null
@@ -733,7 +729,7 @@ cases:
     expected: null
     payload:
       channel: '01'
-      payload: '12345678'
+      payload: ABCDEFGHIJKLMNOPQRSTUVWXYZ
       encoding: broadcast_hex_frame
   - action: multi_receiver_assert
     device: null
@@ -743,16 +739,16 @@ cases:
       receivers:
       - B
       - C
-      value: '12345678'
+      value: ABCDEFGHIJKLMNOPQRSTUVWXYZ
   expected:
-  - B, C receive payload 12345678 in both no-KEY and shared-KEY rounds.
+  - B, C receive payload ABCDEFGHIJKLMNOPQRSTUVWXYZ in both no-KEY and shared-KEY rounds.
   result_policy:
     pass_when:
-    - All configured no-KEY and shared-KEY broadcast_transfer rounds deliver the
-      expected payload to every receiver.
+    - All configured no-KEY and shared-KEY broadcast_transfer rounds deliver the expected
+      payload to every receiver.
     fail_when:
-    - Any broadcast_transfer round misses the expected payload, uses mismatched
-      device roles, or has inconsistent KEY configuration.
+    - Any broadcast_transfer round misses the expected payload, uses mismatched device roles,
+      or has inconsistent KEY configuration.
   evidence:
     serial_log: null
     logic_analyzer: null
