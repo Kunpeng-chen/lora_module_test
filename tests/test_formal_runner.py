@@ -373,7 +373,7 @@ def test_run_main_001_transparent_transfer_with_mock_devices() -> None:
     assert devices["B"].ensure_work_mode_calls >= 2
     assert "AT+SLEEP2" in devices["A"].at.calls
     assert "AT+MODE0" in devices["A"].at.calls
-    assert "AT+KEY123456" in devices["B"].at.calls
+    assert "AT+KEY12345" in devices["B"].at.calls
 
 
 def test_run_main_002_wake_on_air_transparent_transfer_with_mock_devices() -> None:
@@ -422,8 +422,8 @@ def test_run_main_005_broadcast_transfer_asserts_b_and_c() -> None:
     assert devices["A"].ensure_work_mode_calls >= 2
     assert devices["B"].ensure_work_mode_calls >= 2
     assert devices["C"].ensure_work_mode_calls >= 2
-    assert "AT+KEY123456" in devices["A"].at.calls
-    assert "AT+KEY123456" in devices["B"].at.calls
-    assert "AT+KEY123456" in devices["C"].at.calls
+    assert "AT+KEY12345" in devices["A"].at.calls
+    assert "AT+KEY12345" in devices["B"].at.calls
+    assert "AT+KEY12345" in devices["C"].at.calls
     assert any("B: received" in step for step in result.steps)
     assert any("C: received" in step for step in result.steps)
