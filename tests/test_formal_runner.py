@@ -19,6 +19,7 @@ from lora_auto.test_formal import (
     select_cases,
     to_report_case,
 )
+from lora_auto.libs.lora_device import DeviceCommandStep
 from lora_auto.libs.report import write_reports
 
 
@@ -144,6 +145,7 @@ class FakeDevice:
         self.serial = serial or LinkedFakeSerial(name)
         self.opened = False
         self.closed = False
+        self.ensure_work_mode_calls = 0
 
     def open(self) -> None:
         self.opened = True
@@ -152,6 +154,17 @@ class FakeDevice:
     def close(self) -> None:
         self.closed = True
         self.serial.close()
+
+    def ensure_work_mode(self) -> list[DeviceCommandStep]:
+        self.ensure_work_mode_calls += 1
+        return [
+            DeviceCommandStep(
+                command="AT",
+                expected="OK",
+                response="",
+                passed=False,
+            )
+        ]
 
 
 def make_transfer_devices(names: tuple[str, ...] = ("A", "B", "C")) -> dict[str, FakeDevice]:
@@ -356,6 +369,8 @@ def test_run_main_001_transparent_transfer_with_mock_devices() -> None:
 
     assert result.status == "PASS"
     assert devices["A"].serial.written_text == [TRANSFER_PAYLOAD, TRANSFER_PAYLOAD]
+    assert devices["A"].ensure_work_mode_calls >= 2
+    assert devices["B"].ensure_work_mode_calls >= 2
     assert "AT+SLEEP2" in devices["A"].at.calls
     assert "AT+MODE0" in devices["A"].at.calls
     assert "AT+KEY123456" in devices["B"].at.calls
@@ -371,6 +386,8 @@ def test_run_main_002_wake_on_air_transparent_transfer_with_mock_devices() -> No
     assert result.status == "PASS"
     assert "AT+SLEEP1" in devices["A"].at.calls
     assert devices["A"].serial.written_text == [TRANSFER_PAYLOAD, TRANSFER_PAYLOAD]
+    assert devices["A"].ensure_work_mode_calls >= 2
+    assert devices["B"].ensure_work_mode_calls >= 2
 
 
 def test_run_main_003_fixed_transfer_writes_structured_hex_frame() -> None:
@@ -385,6 +402,8 @@ def test_run_main_003_fixed_transfer_writes_structured_hex_frame() -> None:
         f"000201{TRANSFER_PAYLOAD_HEX}",
         f"000201{TRANSFER_PAYLOAD_HEX}",
     ]
+    assert devices["A"].ensure_work_mode_calls >= 2
+    assert devices["B"].ensure_work_mode_calls >= 2
     assert "AT+MODE1" in devices["A"].at.calls
 
 
@@ -400,6 +419,9 @@ def test_run_main_005_broadcast_transfer_asserts_b_and_c() -> None:
         f"01{TRANSFER_PAYLOAD_HEX}",
         f"01{TRANSFER_PAYLOAD_HEX}",
     ]
+    assert devices["A"].ensure_work_mode_calls >= 2
+    assert devices["B"].ensure_work_mode_calls >= 2
+    assert devices["C"].ensure_work_mode_calls >= 2
     assert "AT+KEY123456" in devices["A"].at.calls
     assert "AT+KEY123456" in devices["B"].at.calls
     assert "AT+KEY123456" in devices["C"].at.calls
