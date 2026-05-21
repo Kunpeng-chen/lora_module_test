@@ -12,8 +12,10 @@ class FakeSerialClient:
         response: SerialResponse | None = None,
         fail_write: bool = False,
         read_all_data: str = "",
+        responses: list[SerialResponse] | None = None,
     ) -> None:
         self.response = response or SerialResponse(data="OK\r\n", matched=True)
+        self.responses = list(responses or [])
         self.fail_write = fail_write
         self.read_all_data = read_all_data
         self.commands: list[tuple[str, bool]] = []
@@ -28,6 +30,8 @@ class FakeSerialClient:
 
     def read_until(self, expected: str, timeout: float = 2.0) -> SerialResponse:
         self.reads.append((expected, timeout))
+        if self.responses:
+            return self.responses.pop(0)
         return self.response
 
     def read_all(self, timeout: float = 2.0) -> str:
@@ -73,15 +77,33 @@ def test_send_cmd_supports_version_expectation() -> None:
     assert fake.commands == [("AT+VERSION", True)]
 
 
-def test_enter_at_sends_escape_sequence_with_crlf() -> None:
-    fake = FakeSerialClient(SerialResponse(data="Entry AT\r\n", matched=True))
+def test_enter_at_returns_probe_result_when_already_in_at_mode() -> None:
+    fake = FakeSerialClient(SerialResponse(data="OK\r\n", matched=True))
     client = AtClient(fake)  # type: ignore[arg-type]
 
-    result = client.enter_at(timeout=0.5)
+    result = client.enter_at(timeout=0.5, probe_timeout=0.1)
 
     assert result.passed is True
-    assert fake.commands == [("+++", True)]
-    assert fake.reads == [("Entry AT", 0.5)]
+    assert result.command == "AT"
+    assert fake.commands == [("AT", True)]
+    assert fake.reads == [("OK", 0.1)]
+
+
+def test_enter_at_sends_escape_sequence_when_probe_fails() -> None:
+    fake = FakeSerialClient(
+        responses=[
+            SerialResponse(data="", matched=False),
+            SerialResponse(data="Entry AT\r\n", matched=True),
+        ]
+    )
+    client = AtClient(fake)  # type: ignore[arg-type]
+
+    result = client.enter_at(timeout=0.5, probe_timeout=0.1)
+
+    assert result.passed is True
+    assert result.command == "+++"
+    assert fake.commands == [("AT", True), ("+++", True)]
+    assert fake.reads == [("OK", 0.1), ("Entry AT", 0.5)]
 
 
 def test_exit_at_drains_reset_banner_and_clears_buffer() -> None:
