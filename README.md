@@ -219,6 +219,23 @@ python lora_auto/test_formal.py --suite error_at --dry-run
 
 The `error_at` suite expands `ERRAT-001` through `ERRAT-057` from `lora_auto/config/formal/error_at_cases.yaml`. expect `ERROR=101`. Receiving the configured error code is a PASS condition for the negative command step. Each negative command is followed by a post-check `AT -> OK`; missing the expected error code or failing the post-check makes the case FAIL. The runner uses the normalized `ERROR=<code>` spelling rather than the manual typo `EEROR`.
 
+Phase 5 expands `main_cases.yaml` to `MAIN-001` through `MAIN-006` as transfer-mode data definitions only. The cases cover transparent, fixed, and broadcast transfer in both `SLEEP2` high-speed mode and `SLEEP1` wake-on-air mode. Each case models two rounds: no KEY and shared KEY. In shared-KEY rounds, every participating device receives the same KEY; broadcast cases include devices A/B/C and assert both B and C as receivers.
+
+Fixed and broadcast payloads are represented with structured fields instead of hard-coded complete HEX strings:
+
+```yaml
+target_mac: "00,02"
+channel: "01"
+payload: "12345678"
+encoding: fixed_hex_frame
+```
+
+```yaml
+channel: "01"
+payload: "12345678"
+encoding: broadcast_hex_frame
+```
+
 Reports are written with the existing report layout:
 
 ```text
