@@ -61,6 +61,7 @@ def patch_serial_client(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_check_serial_enters_at_sends_command_and_exits_at_on_success(capsys: pytest.CaptureFixture[str]) -> None:
     FakeSerialClient.responses = [
+        SerialResponse(data="", matched=False),
         SerialResponse(data="Entry AT\r\n", matched=True),
         SerialResponse(data="OK\r\n", matched=True),
         SerialResponse(data="Exit AT\r\n", matched=True),
@@ -71,7 +72,7 @@ def test_check_serial_enters_at_sends_command_and_exits_at_on_success(capsys: py
 
     assert rc == 0
     serial = FakeSerialClient.instances[0]
-    assert serial.commands == [("+++", True), ("AT", True), ("+++", True)]
+    assert serial.commands == [("AT", True), ("+++", True), ("AT", True), ("+++", True)]
     assert serial.read_alls == [1.0]
     assert serial.cleared >= 2
     output = capsys.readouterr().out
@@ -85,6 +86,7 @@ def test_check_serial_enters_at_sends_command_and_exits_at_on_success(capsys: py
 
 def test_check_serial_does_not_exit_at_when_command_fails() -> None:
     FakeSerialClient.responses = [
+        SerialResponse(data="", matched=False),
         SerialResponse(data="Entry AT\r\n", matched=True),
         SerialResponse(data="ERROR\r\n", matched=False),
     ]
@@ -93,12 +95,13 @@ def test_check_serial_does_not_exit_at_when_command_fails() -> None:
 
     assert rc == 1
     serial = FakeSerialClient.instances[0]
-    assert serial.commands == [("+++", True), ("AT", True)]
+    assert serial.commands == [("AT", True), ("+++", True), ("AT", True)]
     assert serial.read_alls == []
 
 
 def test_check_serial_skip_exit_at_keeps_module_in_at_mode() -> None:
     FakeSerialClient.responses = [
+        SerialResponse(data="", matched=False),
         SerialResponse(data="Entry AT\r\n", matched=True),
         SerialResponse(data="OK\r\n", matched=True),
     ]
@@ -107,5 +110,5 @@ def test_check_serial_skip_exit_at_keeps_module_in_at_mode() -> None:
 
     assert rc == 0
     serial = FakeSerialClient.instances[0]
-    assert serial.commands == [("+++", True), ("AT", True)]
+    assert serial.commands == [("AT", True), ("+++", True), ("AT", True)]
     assert serial.read_alls == []
