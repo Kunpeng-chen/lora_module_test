@@ -25,15 +25,33 @@ class FakeSerialClient:
 class FakeAtClient:
     at_entry_expected = "Entry AT"
 
-    def __init__(self, fail_command: str | None = None, raise_command: str | None = None) -> None:
+    def __init__(
+        self,
+        fail_command: str | None = None,
+        raise_command: str | None = None,
+        initial_mode: str = "at",
+    ) -> None:
         self.fail_command = fail_command
         self.raise_command = raise_command
+        self.mode = initial_mode
         self.calls: list[tuple[str, str, float, bool]] = []
 
     def enter_at(self, timeout: float = 2.0) -> AtCommandResult:
         command = "+++"
         self.calls.append((command, self.at_entry_expected, timeout, True))
-        return self._result(command, self.at_entry_expected)
+        result = self._result(command, self.at_entry_expected)
+        if result.passed:
+            self.mode = "at"
+        return result
+
+    def exit_at(self, timeout: float = 2.0, **_: object) -> AtCommandResult:
+        command = "+++"
+        expected = "Exit AT"
+        self.calls.append((command, expected, timeout, True))
+        result = self._result(command, expected)
+        if result.passed:
+            self.mode = "work"
+        return result
 
     def send_cmd(
         self,
@@ -48,11 +66,16 @@ class FakeAtClient:
     def reset(self, timeout: float = 5.0, expected: str = "OK") -> AtCommandResult:
         command = "AT+RESET"
         self.calls.append((command, expected, timeout, True))
-        return self._result(command, expected)
+        result = self._result(command, expected)
+        if result.passed:
+            self.mode = "work"
+        return result
 
     def _result(self, command: str, expected: str) -> AtCommandResult:
         if self.raise_command == command:
             raise AtClientError("transport error")
+        if command == "AT" and self.mode == "work":
+            return AtCommandResult(command, "", expected, False, "failed")
         passed = self.fail_command != command
         response = expected if passed else "ERROR"
         return AtCommandResult(
@@ -85,15 +108,57 @@ def test_device_open_and_close_delegate_to_serial_client() -> None:
     assert device.baudrate == 9600
 
 
-def test_configure_transparent_mode_executes_expected_command_sequence() -> None:
-    at = FakeAtClient()
+def test_detect_mode_reports_at_mode() -> None:
+    at = FakeAtClient(initial_mode="at")
+    device, _ = make_device(at)
+
+    probe = device.detect_mode()
+
+    assert probe.mode == "at"
+    assert probe.response == "OK"
+    assert at.calls == [("AT", "OK", 0.5, True)]
+
+
+def test_detect_mode_reports_work_mode_when_at_probe_does_not_match() -> None:
+    at = FakeAtClient(initial_mode="work")
+    device, _ = make_device(at)
+
+    probe = device.detect_mode()
+
+    assert probe.mode == "work"
+    assert probe.response == ""
+    assert at.calls == [("AT", "OK", 0.5, True)]
+
+
+def test_ensure_at_mode_enters_when_current_mode_is_work() -> None:
+    at = FakeAtClient(initial_mode="work")
+    device, _ = make_device(at)
+
+    steps = device.ensure_at_mode()
+
+    assert [step.command for step in steps] == ["AT", "+++", "AT"]
+    assert at.mode == "at"
+
+
+def test_ensure_work_mode_exits_when_current_mode_is_at() -> None:
+    at = FakeAtClient(initial_mode="at")
+    device, _ = make_device(at)
+
+    steps = device.ensure_work_mode()
+
+    assert [step.command for step in steps] == ["AT", "+++"]
+    assert at.mode == "work"
+
+
+def test_configure_transparent_mode_executes_expected_command_sequence_from_at_mode() -> None:
+    at = FakeAtClient(initial_mode="at")
     device, serial = make_device(at)
 
     steps = device.configure_transparent_mode()
 
     assert serial.cleared == 1
     assert [step.command for step in steps] == [
-        "+++",
+        "AT",
         "AT+SLEEP2",
         "AT+MODE0",
         "AT+LEVEL2",
@@ -102,12 +167,29 @@ def test_configure_transparent_mode_executes_expected_command_sequence() -> None
     ]
     assert all(step.passed for step in steps)
     assert at.calls == [
-        ("+++", "Entry AT", 2.0, True),
+        ("AT", "OK", 0.5, True),
         ("AT+SLEEP2", "OK", 2.0, True),
         ("AT+MODE0", "OK", 2.0, True),
         ("AT+LEVEL2", "OK", 2.0, True),
         ("AT+CHANNEL00", "OK", 2.0, True),
         ("AT+RESET", "OK", 5.0, True),
+    ]
+
+
+def test_configure_transparent_mode_enters_at_mode_when_needed() -> None:
+    at = FakeAtClient(initial_mode="work")
+    device, serial = make_device(at)
+
+    steps = device.configure_transparent_mode()
+
+    assert serial.cleared == 1
+    assert [step.command for step in steps[:3]] == ["AT", "+++", "AT"]
+    assert [step.command for step in steps[-5:]] == [
+        "AT+SLEEP2",
+        "AT+MODE0",
+        "AT+LEVEL2",
+        "AT+CHANNEL00",
+        "AT+RESET",
     ]
 
 
@@ -121,7 +203,7 @@ def test_configure_transparent_mode_supports_custom_parameters() -> None:
     assert device.role == "receiver"
     assert device.baudrate == 115200
     assert [step.command for step in steps] == [
-        "+++",
+        "AT",
         "AT+SLEEP1",
         "AT+MODE0",
         "AT+LEVEL3",
@@ -138,7 +220,7 @@ def test_configure_transparent_mode_stops_on_failed_command() -> None:
         device.configure_transparent_mode()
 
     assert serial.cleared == 1
-    assert [call[0] for call in at.calls] == ["+++", "AT+SLEEP2", "AT+MODE0", "AT+LEVEL2"]
+    assert [call[0] for call in at.calls] == ["AT", "AT+SLEEP2", "AT+MODE0", "AT+LEVEL2"]
 
 
 def test_configure_transparent_mode_wraps_at_client_errors() -> None:
