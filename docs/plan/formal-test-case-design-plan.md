@@ -11,12 +11,11 @@
 - AT 异常指令用例：`ERRAT-*`
 - 出货/回归用例：`SHIP-*`、`SHIPAT-*`
 - 迭代回归用例：`ITER-*`、`ITERAT-*`
-- 休眠、M0/M1、AUX、压力、功耗、射频、距离等半自动或人工证据型用例
 
 整体推进原则：
 
 ```text
-正式用例模型 -> AT 精确返回数据化 -> AT 执行器 -> 异常 AT -> 传输模式 -> 设备模式前置规则 -> 出货/迭代 -> 半自动与仪表证据
+正式用例模型 -> AT 精确返回数据化 -> AT 执行器 -> 异常 AT -> 传输模式 -> 设备模式前置规则 -> 出货/迭代
 ```
 
 ## 2. 已确认决策
@@ -412,85 +411,6 @@ feat: add formal ship and iteration suites
 README 影响：
 
 需要说明出货/迭代 suite 的执行方式和兼容性测试的人工前置条件。
-
----
-
-## Phase 8：休眠、M0/M1、AUX 半自动化 [ ]
-
-目标：覆盖休眠唤醒、M0/M1 模式切换和 AUX 状态观测相关用例。
-
-任务：
-
-- 覆盖 `MAIN-007`、`MAIN-009`、`MAIN-010`、`MAIN-011`、`SHIP-003`、`ITER-003`
-- 新增 step 类型：`manual_observe`、`manual_set_gpio`、`record_evidence`
-- 自动断言可稳定从串口观察到的文本：`enter sleep`、`exit sleep`
-- AUX、M0/M1 结果必须记录 evidence，不能无证据自动 PASS
-
-不做什么：
-
-- 不强依赖逻辑分析仪。
-- 不强依赖 GPIO 控制板。
-- 不把人工观察硬编码为自动 PASS。
-
-验收标准：
-
-- 半自动用例可生成待人工确认步骤。
-- 人工确认结果或 evidence 路径可进入报告。
-- 缺少必要 evidence 时，用例不能自动 PASS。
-- 支持状态：`manual_required` 或 `semi_auto_pending`。
-
----
-
-## Phase 9：压力测试与长稳测试 [ ]
-
-目标：覆盖长时间透传、AT 指令溢出、透明传输数据溢出、定点传输数据对发和长时间休眠唤醒。
-
-任务：
-
-- 覆盖 `MAIN-008`、`MAIN-012`、`MAIN-013`、`MAIN-014`、`MAIN-015`
-- 建模字段：`duration`、`interval_ms`、`payload_size`、`level_sweep`、`sent_count`、`received_count`、`loss_count`、`error_count`、`after_stress_health_check`
-- 支持开发阶段缩短时长，例如 `--duration` 覆盖默认值
-- 长稳测试不进入普通 CI
-
-不做什么：
-
-- 不默认执行 24 小时测试。
-- 不阻塞普通 pytest。
-- 不将压力测试结果混入普通快速测试报告，除非用户显式运行。
-
-验收标准：
-
-- 支持独立压力入口或正式 runner 的 stress suite。
-- 支持短时 smoke 模式。
-- 报告记录发送数、接收数、丢包数、错误数、最终健康检查结果。
-- PASS 判定阈值可配置，不写死在 runner 中。
-
----
-
-## Phase 10：功耗、射频、距离、工作电压证据模型 [ ]
-
-目标：覆盖工作电压、射频指标、距离和功耗测试，为后续仪表接入保留数据结构。
-
-任务：
-
-- 覆盖 `MAIN-016` ~ `MAIN-030`
-- 建模 evidence 字段：`power_record`、`rf_record`、`voltage_record`、`distance_record`、`manual_note`
-- 支持记录：`min`、`typical`、`max`、`unit`、`condition`、`instrument`
-- 没有规格阈值时，只记录测量值，不自动判定 PASS/FAIL
-
-不做什么：
-
-- 不直接接入功耗仪。
-- 不直接接入频谱仪。
-- 不直接判定距离指标。
-- 不把无阈值的人工记录自动设为 PASS。
-
-验收标准：
-
-- 人工或仪表记录可以进入报告。
-- 每条 manual case 都有 evidence 字段。
-- 缺少必要 evidence 时不能 PASS。
-- 后续可扩展 SCPI、pyvisa、serial、socket 等仪表接入，不破坏当前模型。
 
 ---
 
