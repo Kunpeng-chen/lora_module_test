@@ -355,6 +355,14 @@ class FormalAtRunner:
             f"{device.name}: ensure_at_mode verified -> {verify.response!r}",
         ]
 
+    def ensure_work_mode(self, device: LoraDevice) -> list[str]:
+        """Ensure a device is in work mode before payload transfer IO."""
+
+        if not hasattr(device, "ensure_work_mode"):
+            return []
+        steps = device.ensure_work_mode()
+        return [f"{device.name}: {step.command} -> {step.response!r}" for step in steps]
+
     def _run_at_step(self, case: dict[str, Any], step: dict[str, Any]) -> str:
         action = step["action"]
         device = self._get_device(step.get("device"))
@@ -484,12 +492,16 @@ class FormalAtRunner:
         return f"{device.name}: sent broadcast hex {payload}"
 
     def _clear_transfer_buffers(self, sender: LoraDevice, current_roles: dict[str, Any]) -> None:
+        self.ensure_work_mode(sender)
         sender.serial.clear_buffer()
         for receiver_name in current_roles.get("receivers", []) or []:
-            self._get_device(str(receiver_name)).serial.clear_buffer()
+            receiver = self._get_device(str(receiver_name))
+            self.ensure_work_mode(receiver)
+            receiver.serial.clear_buffer()
 
     def _receive_payload(self, case: dict[str, Any], step: dict[str, Any]) -> str:
         device = self._get_device(step.get("device"))
+        self.ensure_work_mode(device)
         expected = step.get("expected")
         read_until = expected_read_until(expected)
         response = device.serial.read_until(read_until, timeout=float(step.get("timeout", 5.0)))
@@ -510,6 +522,7 @@ class FormalAtRunner:
         details: list[str] = []
         for receiver_name in receivers:
             device = self._get_device(str(receiver_name))
+            self.ensure_work_mode(device)
             response = device.serial.read_until(str(value), timeout=float(step.get("timeout", 5.0)))
             detail = f"{device.name}: received {response.data!r}"
             if not response.matched or str(value) not in response.data:
