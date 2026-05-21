@@ -226,13 +226,13 @@ Fixed and broadcast payloads are represented with structured fields instead of h
 ```yaml
 target_mac: "00,02"
 channel: "01"
-payload: "12345678"
+payload: "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 encoding: fixed_hex_frame
 ```
 
 ```yaml
 channel: "01"
-payload: "12345678"
+payload: "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 encoding: broadcast_hex_frame
 ```
 
