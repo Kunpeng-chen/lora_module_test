@@ -62,7 +62,7 @@ cases:
     transfer_type: transparent_transfer
     work_mode: SLEEP2
     key_mode: shared_key
-    shared_key: '123456'
+    shared_key: '12345'
     roles:
       sender: A
       receivers:
@@ -71,12 +71,12 @@ cases:
       A:
         sleep: SLEEP2
         channel: '01'
-        key: '123456'
+        key: '12345'
         mac: 00,01
       B:
         sleep: SLEEP2
         channel: '01'
-        key: '123456'
+        key: '12345'
         mac: 00,02
   - action: send_plain_payload
     device: A
@@ -181,7 +181,7 @@ cases:
     transfer_type: transparent_transfer
     work_mode: SLEEP1
     key_mode: shared_key
-    shared_key: '123456'
+    shared_key: '12345'
     roles:
       sender: A
       receivers:
@@ -190,12 +190,12 @@ cases:
       A:
         sleep: SLEEP1
         channel: '01'
-        key: '123456'
+        key: '12345'
         mac: 00,01
       B:
         sleep: SLEEP1
         channel: '01'
-        key: '123456'
+        key: '12345'
         mac: 00,02
   - action: send_plain_payload
     device: A
@@ -303,7 +303,7 @@ cases:
     transfer_type: fixed_transfer
     work_mode: SLEEP2
     key_mode: shared_key
-    shared_key: '123456'
+    shared_key: '12345'
     roles:
       sender: A
       receivers:
@@ -313,12 +313,12 @@ cases:
       A:
         sleep: SLEEP2
         channel: '01'
-        key: '123456'
+        key: '12345'
         mac: 00,01
       B:
         sleep: SLEEP2
         channel: '01'
-        key: '123456'
+        key: '12345'
         mac: 00,02
   - action: send_fixed_payload
     device: A
@@ -428,7 +428,7 @@ cases:
     transfer_type: fixed_transfer
     work_mode: SLEEP1
     key_mode: shared_key
-    shared_key: '123456'
+    shared_key: '12345'
     roles:
       sender: A
       receivers:
@@ -438,12 +438,12 @@ cases:
       A:
         sleep: SLEEP1
         channel: '01'
-        key: '123456'
+        key: '12345'
         mac: 00,01
       B:
         sleep: SLEEP1
         channel: '01'
-        key: '123456'
+        key: '12345'
         mac: 00,02
   - action: send_fixed_payload
     device: A
@@ -561,7 +561,7 @@ cases:
     transfer_type: broadcast_transfer
     work_mode: SLEEP2
     key_mode: shared_key
-    shared_key: '123456'
+    shared_key: '12345'
     roles:
       sender: A
       receivers:
@@ -571,17 +571,17 @@ cases:
       A:
         sleep: SLEEP2
         channel: '01'
-        key: '123456'
+        key: '12345'
         mac: 00,01
       B:
         sleep: SLEEP2
         channel: '01'
-        key: '123456'
+        key: '12345'
         mac: 00,02
       C:
         sleep: SLEEP2
         channel: '01'
-        key: '123456'
+        key: '12345'
         mac: 00,03
   - action: send_broadcast_payload
     device: A
@@ -701,7 +701,7 @@ cases:
     transfer_type: broadcast_transfer
     work_mode: SLEEP1
     key_mode: shared_key
-    shared_key: '123456'
+    shared_key: '12345'
     roles:
       sender: A
       receivers:
@@ -711,17 +711,17 @@ cases:
       A:
         sleep: SLEEP1
         channel: '01'
-        key: '123456'
+        key: '12345'
         mac: 00,01
       B:
         sleep: SLEEP1
         channel: '01'
-        key: '123456'
+        key: '12345'
         mac: 00,02
       C:
         sleep: SLEEP1
         channel: '01'
-        key: '123456'
+        key: '12345'
         mac: 00,03
   - action: send_broadcast_payload
     device: A
