@@ -9,6 +9,7 @@ from lora_auto.libs.formal_cases import FormalCaseError, load_formal_case_direct
 
 
 FORMAL_CASE_DIR = Path(__file__).resolve().parents[1] / "lora_auto" / "config" / "formal"
+TRANSFER_PAYLOAD = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 
 def test_loads_formal_case_samples_and_phase2_at_cases() -> None:
@@ -65,6 +66,25 @@ def test_phase5_main_transfer_cases_model_key_rounds_for_all_participants() -> N
         assert shared_keys == {shared_key_step["shared_key"]}
 
 
+def test_phase5_all_transfer_payloads_use_alphabet_sequence() -> None:
+    cases = [case for case in load_formal_case_directory(FORMAL_CASE_DIR) if case["suite"] == "main"]
+
+    for case in cases:
+        payload_steps = [step for step in case["steps"] if step["action"].startswith("send_")]
+        assert payload_steps
+        for step in payload_steps:
+            payload = step.get("payload")
+            assert payload
+            assert payload["payload"] == TRANSFER_PAYLOAD
+            if step["command"] is not None:
+                assert step["command"] == TRANSFER_PAYLOAD
+
+        for step in case["steps"]:
+            expected = step.get("expected")
+            if isinstance(expected, dict) and "value" in expected:
+                assert expected["value"] == TRANSFER_PAYLOAD
+
+
 def test_phase5_fixed_and_broadcast_payloads_are_structured() -> None:
     cases = {case["id"]: case for case in load_formal_case_directory(FORMAL_CASE_DIR)}
 
@@ -75,7 +95,7 @@ def test_phase5_fixed_and_broadcast_payloads_are_structured() -> None:
             assert step["payload"] == {
                 "target_mac": "00,02",
                 "channel": "01",
-                "payload": "12345678",
+                "payload": TRANSFER_PAYLOAD,
                 "encoding": "fixed_hex_frame",
             }
 
@@ -85,7 +105,7 @@ def test_phase5_fixed_and_broadcast_payloads_are_structured() -> None:
         for step in payload_steps:
             assert step["payload"] == {
                 "channel": "01",
-                "payload": "12345678",
+                "payload": TRANSFER_PAYLOAD,
                 "encoding": "broadcast_hex_frame",
             }
         receiver_asserts = [
