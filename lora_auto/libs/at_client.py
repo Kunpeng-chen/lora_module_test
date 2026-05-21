@@ -31,13 +31,17 @@ class AtClient:
         self.serial = serial_client
         self.at_entry_expected = at_entry_expected
 
-    def enter_at(self, timeout: float = 2.0) -> AtCommandResult:
-        """Enter AT mode using the LoRa module escape sequence.
+    def enter_at(self, timeout: float = 2.0, probe_timeout: float = 0.5) -> AtCommandResult:
+        """Enter AT mode after probing the current mode.
 
-        The manual defines AT command frames as ending with CRLF, so the escape
-        sequence is also sent through ``write_text`` with the default CRLF
-        terminator.
+        ``AT -> OK`` means the module is already in AT mode, so the method does
+        not send ``+++`` again. If the probe does not match, the escape sequence
+        is sent with CRLF to enter AT mode.
         """
+
+        probe = self.send_cmd("AT", expected="OK", timeout=probe_timeout)
+        if probe.passed:
+            return probe
 
         return self.send_cmd(
             "+++",
